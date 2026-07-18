@@ -7,7 +7,7 @@
 
 let audioCtx: AudioContext | null = null;
 
-function getCtx(): AudioContext {
+export function getCtx(): AudioContext {
   if (!audioCtx) {
     const win = window as unknown as {
       AudioContext?: typeof AudioContext;

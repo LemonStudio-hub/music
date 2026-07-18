@@ -4,6 +4,7 @@
 
 import { Renderer, Block, Particle } from '@/renderer';
 import { NoteEvent } from '@/audio';
+import { getCtx } from '@/sfx';
 
 // Color palette for blocks - vibrant colors
 const BLOCK_COLORS: Array<{ start: string; end: string }> = [
@@ -113,13 +114,7 @@ export class Game {
   }
 
   start(onEnd: () => void): void {
-    const win = window as unknown as {
-      AudioContext?: typeof AudioContext;
-      webkitAudioContext?: typeof AudioContext;
-    };
-    const AudioCtx = win.AudioContext ?? win.webkitAudioContext;
-    if (!AudioCtx) throw new Error('AudioContext not supported');
-    this.audioCtx = new AudioCtx();
+    this.audioCtx = getCtx();
     void this.audioCtx.resume();
     this.source = this.audioCtx.createBufferSource();
     this.source.buffer = this.buffer;

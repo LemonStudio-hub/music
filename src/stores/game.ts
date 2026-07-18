@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { analyzeAudio, loadAudioFile, NoteEvent } from '@/audio';
 import { Renderer, Block } from '@/renderer';
 import { Game, HitResult } from '@/game';
+import { resumeAudio } from '@/sfx';
 import { storeAudioBuffer, loadStoredAudio, clearStoredAudio, hasStoredAudio } from '@/storage';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -87,6 +88,7 @@ export const useGameStore = defineStore('game', () => {
     fileName.value = file.name;
 
     try {
+      await resumeAudio();
       const audioBuffer = await loadAudioFile(file);
       const analysis = analyzeAudio(audioBuffer, difficulty.value);
 
@@ -115,6 +117,7 @@ export const useGameStore = defineStore('game', () => {
     errorMsg.value = '';
 
     try {
+      await resumeAudio();
       const result = await loadStoredAudio();
       if (!result) {
         hasStored.value = false;
