@@ -78,6 +78,10 @@ export const useGameStore = defineStore('game', () => {
     renderer?.resize();
   }
 
+  function pressLane(lane: number): void {
+    renderer?.pressLane(lane);
+  }
+
   function getAnalyser(): AnalyserNode | null {
     return engine?.analyser ?? null;
   }
@@ -229,7 +233,13 @@ export const useGameStore = defineStore('game', () => {
     renderer.clear();
     renderer.applyShake();
 
+    // Background with combo energy
+    renderer.comboEnergy = Math.min(1, combo.value / 50);
+    renderer.drawBackground(engine.hitLineY);
+
+    renderer.drawLaneBases(engine.lanes, engine.laneWidth, engine.hitLineY);
     renderer.drawLanes(engine.lanes, engine.laneWidth);
+    renderer.drawLanePress(engine.lanes, engine.laneWidth, engine.hitLineY);
 
     // Draw lane flashes
     for (let i = 0; i < engine.laneFlashes.length; i++) {
@@ -297,6 +307,7 @@ export const useGameStore = defineStore('game', () => {
   function hitPointer(e: PointerEvent): { block: Block; dist: number } | null {
     if (!engine || !renderer || screen.value !== 'playing') return null;
     const lane = Math.min(Math.max(0, Math.floor(e.clientX / engine.laneWidth)), engine.lanes - 1);
+    renderer.pressLane(lane);
     return engine.hitAt(lane);
   }
 
@@ -569,6 +580,7 @@ export const useGameStore = defineStore('game', () => {
     setDifficulty,
     initRenderer,
     requestResize,
+    pressLane,
     getAnalyser,
     loadFile,
     restoreStored,

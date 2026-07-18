@@ -127,18 +127,18 @@ describe('Renderer', () => {
     it('should draw mobile hints when isMobile is true', () => {
       renderer.drawLaneHints(4, 200, 500, true);
       expect(mockCtx.fillText).toHaveBeenCalledTimes(4);
-      expect(mockCtx.fillText).toHaveBeenCalledWith('1', 100, 530);
-      expect(mockCtx.fillText).toHaveBeenCalledWith('2', 300, 530);
-      expect(mockCtx.fillText).toHaveBeenCalledWith('3', 500, 530);
-      expect(mockCtx.fillText).toHaveBeenCalledWith('4', 700, 530);
+      expect(mockCtx.fillText).toHaveBeenCalledWith('1', 100, 528);
+      expect(mockCtx.fillText).toHaveBeenCalledWith('2', 300, 528);
+      expect(mockCtx.fillText).toHaveBeenCalledWith('3', 500, 528);
+      expect(mockCtx.fillText).toHaveBeenCalledWith('4', 700, 528);
     });
 
     it('should draw desktop hints when isMobile is false', () => {
       renderer.drawLaneHints(4, 200, 500, false);
-      expect(mockCtx.fillText).toHaveBeenCalledWith('D', 100, 530);
-      expect(mockCtx.fillText).toHaveBeenCalledWith('F', 300, 530);
-      expect(mockCtx.fillText).toHaveBeenCalledWith('J', 500, 530);
-      expect(mockCtx.fillText).toHaveBeenCalledWith('K', 700, 530);
+      expect(mockCtx.fillText).toHaveBeenCalledWith('D', 100, 528);
+      expect(mockCtx.fillText).toHaveBeenCalledWith('F', 300, 528);
+      expect(mockCtx.fillText).toHaveBeenCalledWith('J', 500, 528);
+      expect(mockCtx.fillText).toHaveBeenCalledWith('K', 700, 528);
     });
   });
 
@@ -265,10 +265,10 @@ describe('Renderer', () => {
       expect(mockCtx.beginPath).toHaveBeenCalled();
     });
 
-    it('should skip glow when pulse is low', () => {
+    it('should draw glow zone', () => {
       vi.clearAllMocks();
       renderer.drawHitLine(500, 800, 0.01);
-      expect(mockCtx.fillRect).not.toHaveBeenCalled();
+      expect(mockCtx.fillRect).toHaveBeenCalled();
     });
   });
 

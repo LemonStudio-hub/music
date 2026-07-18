@@ -18,6 +18,10 @@
         aria-valuemax="100"
         :style="{ width: store.progressPercent }"
       ></div>
+      <div class="song-info">
+        <span class="song-name">{{ store.fileName }}</span>
+        <span class="song-diff">{{ store.difficulty }}</span>
+      </div>
       <button
         v-if="!store.devMode"
         class="pause-btn"
@@ -59,6 +63,8 @@
         :y="effect.y"
       />
 
+      <ComboMilestone v-if="comboMilestone" :key="comboMilestone" :value="comboMilestone" />
+
       <PauseOverlay v-if="store.screen === 'paused'" />
     </div>
 
@@ -72,6 +78,7 @@ import { useGameStore } from '@/stores/game';
 import { Block } from '@/renderer';
 import { playHitSound } from '@/sfx';
 import HitEffect from './HitEffect.vue';
+import ComboMilestone from './ComboMilestone.vue';
 import PauseOverlay from './PauseOverlay.vue';
 import DevDashboard from './DevDashboard.vue';
 
@@ -80,6 +87,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 
 const scorePulse = ref(false);
 const comboPulse = ref(false);
+const comboMilestone = ref(0);
 
 interface Effect {
   id: number;
@@ -91,9 +99,11 @@ interface Effect {
 
 const effects = ref<Effect[]>([]);
 let effectId = 0;
-
 let scorePulseTimer = 0;
 let comboPulseTimer = 0;
+let milestoneTimer = 0;
+
+const MILESTONES = [10, 25, 50, 75, 100, 150, 200, 300, 500];
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -115,6 +125,14 @@ function triggerComboPulse(): void {
   comboPulseTimer = window.setTimeout(() => {
     comboPulse.value = false;
   }, 120);
+}
+
+function triggerComboMilestone(value: number): void {
+  comboMilestone.value = value;
+  clearTimeout(milestoneTimer);
+  milestoneTimer = window.setTimeout(() => {
+    comboMilestone.value = 0;
+  }, 1500);
 }
 
 function showHitEffect(block: Block, text: string, color: string): void {
@@ -144,7 +162,16 @@ function processHit(result: { block: Block; dist: number } | null): void {
   const prevCombo = store.combo;
   store.processHit(result);
   triggerScorePulse();
-  if (store.combo > prevCombo) triggerComboPulse();
+  if (store.combo > prevCombo) {
+    triggerComboPulse();
+    // Check combo milestones
+    for (const m of MILESTONES) {
+      if (prevCombo < m && store.combo >= m) {
+        triggerComboMilestone(m);
+        break;
+      }
+    }
+  }
 }
 
 function onPointerDown(e: PointerEvent): void {
@@ -152,6 +179,7 @@ function onPointerDown(e: PointerEvent): void {
 }
 
 function onTouchLane(lane: number): void {
+  store.pressLane(lane);
   processHit(store.hitLane(lane));
 }
 
@@ -161,7 +189,10 @@ function onKeyDown(e: KeyboardEvent): void {
   if (e.code === 'Space') {
     e.preventDefault();
     const result = store.hitAll();
-    if (result) playHitSound(result.block.lane);
+    if (result) {
+      playHitSound(result.block.lane);
+      store.pressLane(result.block.lane);
+    }
     processHit(result);
     return;
   }
@@ -173,6 +204,7 @@ function onKeyDown(e: KeyboardEvent): void {
     const lane = keyLaneMap[e.code];
     e.preventDefault();
     playHitSound(lane);
+    store.pressLane(lane);
     processHit(store.hitLane(lane));
   }
 }
@@ -182,7 +214,6 @@ let resizeObserver: ResizeObserver | null = null;
 onMounted(() => {
   if (canvasRef.value) {
     store.initRenderer(canvasRef.value);
-    // Observe parent container for size changes (e.g. dev mode toggle)
     const parent = canvasRef.value.parentElement;
     if (parent) {
       resizeObserver = new ResizeObserver(() => {
