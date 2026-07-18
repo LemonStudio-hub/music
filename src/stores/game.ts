@@ -36,6 +36,8 @@ export const useGameStore = defineStore('game', () => {
   const restoring = ref(false);
   const difficulty = ref<Difficulty>('normal');
   const countdownValue = ref(3);
+  const loadPhase = ref<'reading' | 'decoding' | 'analyzing' | ''>('');
+  const loadPercent = ref(0);
   const timeRemaining = ref(0);
   const results = ref<GameResults | null>(null);
 
@@ -87,11 +89,19 @@ export const useGameStore = defineStore('game', () => {
     loading.value = true;
     errorMsg.value = '';
     fileName.value = file.name;
+    loadPhase.value = 'reading';
+    loadPercent.value = 0;
 
     try {
       await resumeAudio();
-      const audioBuffer = await loadAudioFile(file);
-      const analysis = analyzeAudio(audioBuffer, difficulty.value);
+      const audioBuffer = await loadAudioFile(file, p => {
+        loadPercent.value = p;
+      });
+      loadPhase.value = 'analyzing';
+      loadPercent.value = 0;
+      const analysis = await analyzeAudio(audioBuffer, difficulty.value, p => {
+        loadPercent.value = p;
+      });
 
       void storeAudioBuffer(audioBuffer, file.name).then(() => {
         hasStored.value = true;
@@ -109,6 +119,7 @@ export const useGameStore = defineStore('game', () => {
       console.error(err);
     } finally {
       loading.value = false;
+      loadPhase.value = '';
     }
   }
 
@@ -116,6 +127,8 @@ export const useGameStore = defineStore('game', () => {
     if (restoring.value) return;
     restoring.value = true;
     errorMsg.value = '';
+    loadPhase.value = 'analyzing';
+    loadPercent.value = 0;
 
     try {
       await resumeAudio();
@@ -126,7 +139,9 @@ export const useGameStore = defineStore('game', () => {
       }
 
       fileName.value = result.fileName;
-      const analysis = analyzeAudio(result.buffer, difficulty.value);
+      const analysis = await analyzeAudio(result.buffer, difficulty.value, p => {
+        loadPercent.value = p;
+      });
 
       if (renderer) {
         beginCountdown(result.buffer, analysis.notes);
@@ -141,6 +156,7 @@ export const useGameStore = defineStore('game', () => {
       hasStored.value = false;
     } finally {
       restoring.value = false;
+      loadPhase.value = '';
     }
   }
 
@@ -359,6 +375,8 @@ export const useGameStore = defineStore('game', () => {
     restoring,
     difficulty,
     countdownValue,
+    loadPhase,
+    loadPercent,
     timeRemaining,
     results,
     comboText,

@@ -973,10 +973,11 @@ function addSubBeatNotes(
 
 // ─── Main Analysis Pipeline ──────────────────────────────────────────────────
 
-export function analyzeAudio(
+export async function analyzeAudio(
   buffer: AudioBuffer,
   difficulty: Difficulty = 'normal',
-): AnalysisResult {
+  onProgress?: (percent: number) => void,
+): Promise<AnalysisResult> {
   const sampleRate = buffer.sampleRate;
   const raw = buffer.getChannelData(0);
 
@@ -995,12 +996,17 @@ export function analyzeAudio(
   const hopSize = ctx.hopSize;
   const frameCount = Math.max(1, Math.floor((data.length - fftSize) / hopSize) + 1);
 
-  // 1. Extract spectral features per frame
+  // 1. Extract spectral features per frame (yield every 80 frames for UI updates)
   const allFeatures: FrameFeatures[] = [];
   for (let f = 0; f < frameCount; f++) {
     const offset = f * hopSize;
     allFeatures.push(processFrame(data, offset, ctx));
+    if (f % 80 === 0) {
+      onProgress?.(Math.round((f / frameCount) * 100));
+      await new Promise(r => setTimeout(r, 0));
+    }
   }
+  onProgress?.(100);
 
   const frameToTime = (f: number): number => (f * hopSize) / sampleRate;
 
@@ -1050,8 +1056,39 @@ interface WindowWithWebkitAudio {
   webkitAudioContext?: typeof AudioContext;
 }
 
-export async function loadAudioFile(file: File): Promise<AudioBuffer> {
-  const arrayBuffer = await file.arrayBuffer();
+export async function loadAudioFile(
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<AudioBuffer> {
+  // Read file with progress tracking via Fetch + ReadableStream
+  let arrayBuffer: ArrayBuffer;
+  if (onProgress && file.size > 0) {
+    const response = new Response(file);
+    const reader = response.body?.getReader();
+    if (reader) {
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        onProgress(Math.round((received / file.size) * 100));
+      }
+      const all = new Uint8Array(received);
+      let pos = 0;
+      for (const chunk of chunks) {
+        all.set(chunk, pos);
+        pos += chunk.length;
+      }
+      arrayBuffer = all.buffer;
+    } else {
+      arrayBuffer = await file.arrayBuffer();
+    }
+  } else {
+    arrayBuffer = await file.arrayBuffer();
+  }
+
   const win = window as unknown as WindowWithWebkitAudio;
   const AudioCtx = win.AudioContext ?? win.webkitAudioContext;
   if (!AudioCtx) throw new Error('AudioContext not supported');

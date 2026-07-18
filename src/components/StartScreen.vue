@@ -42,12 +42,18 @@
       <button class="cached-clear" @click="store.clearStored()">{{ t('start.clearCache') }}</button>
     </div>
 
-    <div class="file-name">
-      <template v-if="store.loading">{{ t('start.analyzing', { file: store.fileName }) }}</template>
-      <template v-else-if="store.restoring">
-        {{ t('start.restoringFile', { file: store.fileName }) }}
-      </template>
-      <template v-else-if="store.errorMsg">{{ store.errorMsg }}</template>
+    <div v-if="store.loading || store.restoring" class="load-progress">
+      <div class="load-progress-label">
+        {{ t(`start.${store.loadPhase || 'reading'}`) }}
+        <span class="load-progress-pct">{{ store.loadPercent }}%</span>
+      </div>
+      <div class="load-progress-track">
+        <div class="load-progress-fill" :style="{ width: store.loadPercent + '%' }"></div>
+      </div>
+    </div>
+
+    <div v-else class="file-name">
+      <template v-if="store.errorMsg">{{ store.errorMsg }}</template>
       <template v-else>{{ store.fileName }}</template>
     </div>
 
