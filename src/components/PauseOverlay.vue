@@ -1,6 +1,6 @@
 <template>
   <div class="pause-overlay show">
-    <p>PAUSED</p>
+    <p>已暂停</p>
     <div class="pause-actions">
       <button class="btn-primary" @click="store.resume()">继续</button>
       <button class="btn-secondary" @click="store.restart()">重新开始</button>

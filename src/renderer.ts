@@ -87,7 +87,7 @@ export class Renderer {
 
   drawLanes(lanes: number, laneWidth: number): void {
     const ctx = this.ctx;
-    ctx.strokeStyle = '#1a1a1a';
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
     ctx.lineWidth = 1;
     for (let i = 1; i < lanes; i++) {
       ctx.beginPath();
@@ -148,8 +148,8 @@ export class Renderer {
     }
 
     // Main line - thicker when pulsed
-    ctx.strokeStyle = pulse > 0.02 ? color : '#333';
-    ctx.lineWidth = 2 + pulse * 4;
+    ctx.strokeStyle = pulse > 0.02 ? color : 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1.5 + pulse * 4;
     ctx.beginPath();
     ctx.moveTo(0, hitLineY);
     ctx.lineTo(width, hitLineY);
@@ -179,8 +179,8 @@ export class Renderer {
 
   drawLaneHints(lanes: number, laneWidth: number, hitLineY: number, isMobile: boolean): void {
     const ctx = this.ctx;
-    ctx.fillStyle = '#222';
-    ctx.font = '200 14px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.font = '300 13px Inter, sans-serif';
     ctx.textAlign = 'center';
     const hints: string[] = isMobile ? ['1', '2', '3', '4'] : ['D', 'F', 'J', 'K'];
     for (let i = 0; i < lanes; i++) {
