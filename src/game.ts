@@ -120,6 +120,7 @@ export class Game {
     const AudioCtx = win.AudioContext ?? win.webkitAudioContext;
     if (!AudioCtx) throw new Error('AudioContext not supported');
     this.audioCtx = new AudioCtx();
+    void this.audioCtx.resume();
     this.source = this.audioCtx.createBufferSource();
     this.source.buffer = this.buffer;
     this.source.connect(this.audioCtx.destination);
