@@ -297,7 +297,7 @@ export class Renderer {
     const ctx = this.ctx;
     const x = block.lane * laneWidth + laneWidth * 0.12 + block.shakeX;
     const bw = laneWidth * 0.76;
-    const bh = 28 * block.size;
+    const bh = 36 * block.size;
     const by = block.y + block.shakeY;
     const r = 8;
 
