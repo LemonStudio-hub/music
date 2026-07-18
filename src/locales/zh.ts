@@ -1,0 +1,40 @@
+export default {
+  title: 'Music Blocks',
+  difficulty: {
+    easy: '简单',
+    normal: '普通',
+    hard: '困难',
+  },
+  start: {
+    dropHint: '拖放音频文件或点击选择',
+    restore: '继续上次的歌曲',
+    restoring: '恢复中...',
+    clearCache: '清除缓存',
+    analyzing: '分析中: {file}',
+    restoringFile: '恢复中: {file}',
+    errorParse: '无法解析该音频文件',
+    errorRestore: '无法恢复缓存音频',
+  },
+  countdown: {
+    ready: '准备',
+  },
+  pause: {
+    title: '已暂停',
+    resume: '继续',
+    restart: '重新开始',
+    quit: '返回菜单',
+  },
+  game: {
+    combo: '{n} COMBO',
+  },
+  results: {
+    accuracy: '准确率',
+    maxCombo: '最高连击',
+    perfect: 'PERFECT',
+    great: 'GREAT',
+    good: 'GOOD',
+    miss: 'MISS',
+    retry: '再来一次',
+    quit: '返回菜单',
+  },
+};

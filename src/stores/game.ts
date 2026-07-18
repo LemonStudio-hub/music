@@ -5,6 +5,7 @@ import { Renderer, Block } from '@/renderer';
 import { Game, HitResult } from '@/game';
 import { resumeAudio } from '@/sfx';
 import { storeAudioBuffer, loadStoredAudio, clearStoredAudio, hasStoredAudio } from '@/storage';
+import { i18n } from '@/i18n';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type Screen = 'start' | 'countdown' | 'playing' | 'paused' | 'results';
@@ -104,7 +105,7 @@ export const useGameStore = defineStore('game', () => {
         screen.value = 'countdown';
       }
     } catch (err: unknown) {
-      errorMsg.value = '无法解析该音频文件';
+      errorMsg.value = i18n.global.t('start.errorParse');
       console.error(err);
     } finally {
       loading.value = false;
@@ -135,7 +136,7 @@ export const useGameStore = defineStore('game', () => {
         screen.value = 'countdown';
       }
     } catch (err: unknown) {
-      errorMsg.value = '无法恢复缓存音频';
+      errorMsg.value = i18n.global.t('start.errorRestore');
       console.error(err);
       hasStored.value = false;
     } finally {

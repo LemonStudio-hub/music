@@ -251,6 +251,27 @@ body {
   color: var(--text-secondary);
 }
 
+/* ─── Language Toggle ─────────────────────────────────────────────────────── */
+.lang-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  transition: all var(--transition);
+}
+.lang-toggle:hover {
+  border-color: var(--text-muted);
+  color: var(--text-secondary);
+}
+
 /* ─── Countdown ──────────────────────────────────────────────────────────── */
 .countdown-screen {
   position: fixed;

@@ -1,6 +1,6 @@
 <template>
   <div class="start-screen">
-    <h1>Music Blocks</h1>
+    <h1>{{ t('title') }}</h1>
 
     <div class="difficulty-selector">
       <button
@@ -10,7 +10,7 @@
         :class="{ active: store.difficulty === d.value }"
         @click="store.setDifficulty(d.value)"
       >
-        {{ d.label }}
+        {{ t(`difficulty.${d.value}`) }}
       </button>
     </div>
 
@@ -26,7 +26,7 @@
           d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
         />
       </svg>
-      <span>拖放音频文件或点击选择</span>
+      <span>{{ t('start.dropHint') }}</span>
       <input
         type="file"
         class="file-input"
@@ -37,32 +37,45 @@
 
     <div v-if="store.hasStored && !store.loading" class="cached-section">
       <button class="cached-btn" :disabled="store.restoring" @click="store.restoreStored()">
-        {{ store.restoring ? '恢复中...' : '继续上次的歌曲' }}
+        {{ store.restoring ? t('start.restoring') : t('start.restore') }}
       </button>
-      <button class="cached-clear" @click="store.clearStored()">清除缓存</button>
+      <button class="cached-clear" @click="store.clearStored()">{{ t('start.clearCache') }}</button>
     </div>
 
     <div class="file-name">
-      <template v-if="store.loading">分析中: {{ store.fileName }}...</template>
-      <template v-else-if="store.restoring">恢复中: {{ store.fileName }}...</template>
+      <template v-if="store.loading">{{ t('start.analyzing', { file: store.fileName }) }}</template>
+      <template v-else-if="store.restoring">
+        {{ t('start.restoringFile', { file: store.fileName }) }}
+      </template>
       <template v-else-if="store.errorMsg">{{ store.errorMsg }}</template>
       <template v-else>{{ store.fileName }}</template>
     </div>
+
+    <button class="lang-toggle" @click="toggleLocale">
+      {{ locale === 'zh' ? 'EN' : '中文' }}
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useGameStore, type Difficulty } from '@/stores/game';
+import { setLocale } from '@/i18n';
 
 const store = useGameStore();
+const { t, locale } = useI18n();
 const dragover = ref(false);
 
-const difficulties: Array<{ value: Difficulty; label: string }> = [
-  { value: 'easy', label: '简单' },
-  { value: 'normal', label: '普通' },
-  { value: 'hard', label: '困难' },
+const difficulties: Array<{ value: Difficulty }> = [
+  { value: 'easy' },
+  { value: 'normal' },
+  { value: 'hard' },
 ];
+
+function toggleLocale(): void {
+  setLocale(locale.value === 'zh' ? 'en' : 'zh');
+}
 
 onMounted(() => {
   void store.checkStored();

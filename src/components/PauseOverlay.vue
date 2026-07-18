@@ -1,16 +1,18 @@
 <template>
   <div class="pause-overlay show">
-    <p>已暂停</p>
+    <p>{{ t('pause.title') }}</p>
     <div class="pause-actions">
-      <button class="btn-primary" @click="store.resume()">继续</button>
-      <button class="btn-secondary" @click="store.restart()">重新开始</button>
-      <button class="btn-ghost" @click="store.quit()">返回菜单</button>
+      <button class="btn-primary" @click="store.resume()">{{ t('pause.resume') }}</button>
+      <button class="btn-secondary" @click="store.restart()">{{ t('pause.restart') }}</button>
+      <button class="btn-ghost" @click="store.quit()">{{ t('pause.quit') }}</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import { useGameStore } from '@/stores/game';
 
 const store = useGameStore();
+const { t } = useI18n();
 </script>
