@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Game } from '../game';
-import { Renderer } from '../renderer';
-import { NoteEvent } from '../audio';
+import { Game } from '@/game';
+import { Renderer } from '@/renderer';
+import { NoteEvent } from '@/audio';
 
 function createMockRenderer(): Renderer {
   const canvas = document.createElement('canvas');
@@ -373,7 +373,11 @@ describe('Game', () => {
     });
 
     it('should handle stop when source already stopped', () => {
-      const mockSource = { stop: vi.fn(() => { throw new Error('already stopped'); }) };
+      const mockSource = {
+        stop: vi.fn(() => {
+          throw new Error('already stopped');
+        }),
+      };
       game.source = mockSource as unknown as AudioBufferSourceNode;
       expect(() => game.stop()).not.toThrow();
     });
@@ -410,6 +414,171 @@ describe('Game', () => {
       game.audioCtx = { currentTime: 20.0 } as unknown as AudioContext;
       game.startTime = 2.0;
       expect(game.getProgress()).toBe(1);
+    });
+  });
+
+  describe('laneFlashes', () => {
+    it('should initialize lane flashes on init', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches: false })),
+      );
+      const buffer = { duration: 5 } as unknown as AudioBuffer;
+      game.init(buffer, makeNotes([1.0, 2.0, 3.0, 4.0]));
+      expect(game.laneFlashes).toHaveLength(4);
+      for (const flash of game.laneFlashes) {
+        expect(flash.alpha).toBe(0);
+      }
+    });
+  });
+
+  describe('ripples', () => {
+    it('should start empty', () => {
+      expect(game.ripples).toHaveLength(0);
+    });
+
+    it('should create ripples on spawnParticles', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches: false })),
+      );
+      const buffer = { duration: 5 } as unknown as AudioBuffer;
+      game.init(buffer, makeNotes([1.0]));
+      game.spawnParticles(game.blocks[0]);
+      expect(game.ripples.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('hitLinePulse', () => {
+    it('should default to 0', () => {
+      expect(game.hitLinePulse).toBe(0);
+    });
+
+    it('should set to 1 on spawnParticles', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches: false })),
+      );
+      const buffer = { duration: 5 } as unknown as AudioBuffer;
+      game.init(buffer, makeNotes([1.0]));
+      game.spawnParticles(game.blocks[0]);
+      expect(game.hitLinePulse).toBe(1);
+    });
+
+    it('should decay on updateBlocks', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches: false })),
+      );
+      const buffer = { duration: 5 } as unknown as AudioBuffer;
+      game.init(buffer, makeNotes([1.0]));
+      game.hitLinePulse = 1;
+      game.updateBlocks(0.5);
+      expect(game.hitLinePulse).toBeLessThan(1);
+    });
+  });
+
+  describe('screenFlash', () => {
+    it('should default to 0', () => {
+      expect(game.screenFlashAlpha).toBe(0);
+    });
+
+    it('should set on spawnParticles', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches: false })),
+      );
+      const buffer = { duration: 5 } as unknown as AudioBuffer;
+      game.init(buffer, makeNotes([1.0]));
+      game.spawnParticles(game.blocks[0]);
+      expect(game.screenFlashAlpha).toBeGreaterThan(0);
+    });
+
+    it('should decay on updateBlocks', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches: false })),
+      );
+      const buffer = { duration: 5 } as unknown as AudioBuffer;
+      game.init(buffer, makeNotes([1.0]));
+      game.screenFlashAlpha = 0.5;
+      game.updateBlocks(0.5);
+      expect(game.screenFlashAlpha).toBeLessThan(0.5);
+    });
+  });
+
+  describe('updateBlocks ripple decay', () => {
+    it('should remove expired ripples', () => {
+      game.ripples.push({
+        x: 0,
+        y: 0,
+        radius: 100,
+        maxRadius: 50,
+        color: '#fff',
+        alpha: 0.01,
+        speed: 1,
+      });
+      game.updateBlocks(0.5);
+      expect(game.ripples).toHaveLength(0);
+    });
+
+    it('should update active ripples', () => {
+      game.ripples.push({
+        x: 0,
+        y: 0,
+        radius: 10,
+        maxRadius: 100,
+        color: '#fff',
+        alpha: 0.8,
+        speed: 2,
+      });
+      game.updateBlocks(0.5);
+      expect(game.ripples).toHaveLength(1);
+      expect(game.ripples[0].radius).toBe(12);
+    });
+  });
+
+  describe('updateBlocks lane flash decay', () => {
+    it('should decay lane flash alpha', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches: false })),
+      );
+      const buffer = { duration: 5 } as unknown as AudioBuffer;
+      game.init(buffer, makeNotes([1.0]));
+      game.laneFlashes[0].alpha = 0.5;
+      game.updateBlocks(0.5);
+      expect(game.laneFlashes[0].alpha).toBeLessThan(0.5);
+    });
+
+    it('should zero out very small alpha', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({ matches: false })),
+      );
+      const buffer = { duration: 5 } as unknown as AudioBuffer;
+      game.init(buffer, makeNotes([1.0]));
+      game.laneFlashes[0].alpha = 0.01;
+      game.updateBlocks(0.5);
+      expect(game.laneFlashes[0].alpha).toBe(0);
+    });
+  });
+
+  describe('getHitLabel', () => {
+    it('should return PERFECT for exact 0', () => {
+      const label = game.getHitLabel(0);
+      expect(label.text).toBe('PERFECT');
+      expect(label.color).toBe('#fff');
+    });
+
+    it('should return GREAT at 0.04', () => {
+      const label = game.getHitLabel(0.04);
+      expect(label.text).toBe('GREAT');
+    });
+
+    it('should return GOOD at 0.08', () => {
+      const label = game.getHitLabel(0.08);
+      expect(label.text).toBe('GOOD');
     });
   });
 });

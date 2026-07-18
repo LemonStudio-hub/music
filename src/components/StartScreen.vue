@@ -1,6 +1,19 @@
 <template>
   <div class="start-screen">
     <h1>MUSIC BLOCKS</h1>
+
+    <div class="difficulty-selector">
+      <button
+        v-for="d in difficulties"
+        :key="d.value"
+        class="diff-btn"
+        :class="{ active: store.difficulty === d.value }"
+        @click="store.setDifficulty(d.value)"
+      >
+        {{ d.label }}
+      </button>
+    </div>
+
     <div
       class="drop-zone"
       :class="{ dragover }"
@@ -21,8 +34,17 @@
         @change="onFileChange"
       />
     </div>
+
+    <div v-if="store.hasStored && !store.loading" class="cached-section">
+      <button class="cached-btn" :disabled="store.restoring" @click="store.restoreStored()">
+        {{ store.restoring ? '恢复中...' : '继续上次的歌曲' }}
+      </button>
+      <button class="cached-clear" @click="store.clearStored()">清除缓存</button>
+    </div>
+
     <div class="file-name">
-      <template v-if="store.loading">加载中: {{ store.fileName }}...</template>
+      <template v-if="store.loading">分析中: {{ store.fileName }}...</template>
+      <template v-else-if="store.restoring">恢复中: {{ store.fileName }}...</template>
       <template v-else-if="store.errorMsg">{{ store.errorMsg }}</template>
       <template v-else>{{ store.fileName }}</template>
     </div>
@@ -30,11 +52,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useGameStore } from '../stores/game';
+import { onMounted, ref } from 'vue';
+import { useGameStore, type Difficulty } from '@/stores/game';
 
 const store = useGameStore();
 const dragover = ref(false);
+
+const difficulties: Array<{ value: Difficulty; label: string }> = [
+  { value: 'easy', label: '简单' },
+  { value: 'normal', label: '普通' },
+  { value: 'hard', label: '困难' },
+];
+
+onMounted(() => {
+  void store.checkStored();
+});
 
 function onDrop(e: DragEvent): void {
   dragover.value = false;

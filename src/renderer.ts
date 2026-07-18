@@ -272,7 +272,11 @@ export class Renderer {
     }
 
     // Thin border
-    ctx.strokeStyle = block.hit ? 'rgba(255,255,255,0.6)' : block.missed ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)';
+    ctx.strokeStyle = block.hit
+      ? 'rgba(255,255,255,0.6)'
+      : block.missed
+        ? 'rgba(255,255,255,0.05)'
+        : 'rgba(255,255,255,0.15)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x + r, by - bh / 2);

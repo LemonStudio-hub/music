@@ -2,8 +2,8 @@
  * Game logic - scoring, hit detection, combo, state management
  */
 
-import { Renderer, Block, Particle } from './renderer.js';
-import { NoteEvent } from './audio.js';
+import { Renderer, Block, Particle } from '@/renderer';
+import { NoteEvent } from '@/audio';
 
 // Color palette for blocks - vibrant colors
 const BLOCK_COLORS: Array<{ start: string; end: string }> = [
@@ -88,7 +88,7 @@ export class Game {
     this.maxCombo = 0;
     this.paused = false;
     this._isMobile = matchMedia('(hover: none) and (pointer: coarse)').matches;
-    this.blocks = notes.map((note) => {
+    this.blocks = notes.map(note => {
       const colorSet = BLOCK_COLORS[note.lane % BLOCK_COLORS.length];
       return {
         time: note.time,
@@ -274,10 +274,8 @@ export class Game {
 
     // Lane flash
     const flash = this.laneFlashes[block.lane];
-    if (flash) {
-      flash.color = block.color;
-      flash.alpha = 0.6;
-    }
+    flash.color = block.color;
+    flash.alpha = 0.6;
 
     // Hit line pulse
     this.hitLinePulse = 1;

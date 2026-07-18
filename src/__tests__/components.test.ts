@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import HitEffect from '../components/HitEffect.vue';
-import PauseOverlay from '../components/PauseOverlay.vue';
-import EndOverlay from '../components/EndOverlay.vue';
-import StartScreen from '../components/StartScreen.vue';
-import GameScreen from '../components/GameScreen.vue';
+import HitEffect from '@/components/HitEffect.vue';
+import PauseOverlay from '@/components/PauseOverlay.vue';
+import ResultsScreen from '@/components/ResultsScreen.vue';
+import StartScreen from '@/components/StartScreen.vue';
+import GameScreen from '@/components/GameScreen.vue';
 
 describe('HitEffect', () => {
   it('should render with props', () => {
@@ -40,12 +40,13 @@ describe('PauseOverlay', () => {
     expect(wrapper.text()).toContain('PAUSED');
   });
 
-  it('should have resume and restart buttons', () => {
+  it('should have resume, restart and quit buttons', () => {
     const wrapper = mount(PauseOverlay);
     const buttons = wrapper.findAll('button');
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
     expect(buttons[0].text()).toBe('继续');
     expect(buttons[1].text()).toBe('重新开始');
+    expect(buttons[2].text()).toBe('返回菜单');
   });
 
   it('should call store.resume on resume click', async () => {
@@ -61,33 +62,55 @@ describe('PauseOverlay', () => {
   });
 });
 
-describe('EndOverlay', () => {
+describe('ResultsScreen', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
 
-  it('should render end text', () => {
-    const wrapper = mount(EndOverlay);
-    expect(wrapper.text()).toContain('演奏结束');
+  it('should not render without results', () => {
+    const wrapper = mount(ResultsScreen);
+    expect(wrapper.find('.results-screen').exists()).toBe(false);
   });
 
-  it('should display score and maxCombo', () => {
-    const wrapper = mount(EndOverlay);
-    expect(wrapper.text()).toContain('得分');
-    expect(wrapper.text()).toContain('最高连击');
+  it('should render with results', async () => {
+    const wrapper = mount(ResultsScreen);
+    const { useGameStore } = await import('@/stores/game');
+    const store = useGameStore();
+    store.results = {
+      score: 1000,
+      maxCombo: 50,
+      totalNotes: 100,
+      perfectCount: 80,
+      greatCount: 10,
+      goodCount: 5,
+      missCount: 5,
+      accuracy: 0.95,
+      grade: 'S',
+    };
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('.results-screen').exists()).toBe(true);
+    expect(wrapper.find('.results-grade').text()).toBe('S');
+    expect(wrapper.find('.results-score').text()).toBe('1000');
   });
 
-  it('should have return button', () => {
-    const wrapper = mount(EndOverlay);
-    const button = wrapper.find('button');
-    expect(button.exists()).toBe(true);
-    expect(button.text()).toBe('返回');
-  });
-
-  it('should call store.reset on return click', async () => {
-    const wrapper = mount(EndOverlay);
-    await wrapper.find('button').trigger('click');
-    // Store reset is called - we verify no errors thrown
+  it('should have action buttons', async () => {
+    const wrapper = mount(ResultsScreen);
+    const { useGameStore } = await import('@/stores/game');
+    const store = useGameStore();
+    store.results = {
+      score: 500,
+      maxCombo: 20,
+      totalNotes: 80,
+      perfectCount: 40,
+      greatCount: 20,
+      goodCount: 10,
+      missCount: 10,
+      accuracy: 0.875,
+      grade: 'B',
+    };
+    await wrapper.vm.$nextTick();
+    const buttons = wrapper.findAll('button');
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -115,7 +138,7 @@ describe('StartScreen', () => {
 
   it('should show file name when set', async () => {
     const wrapper = mount(StartScreen);
-    const { useGameStore } = await import('../stores/game');
+    const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.fileName = 'test.mp3';
     await wrapper.vm.$nextTick();
@@ -124,17 +147,17 @@ describe('StartScreen', () => {
 
   it('should show loading text when loading', async () => {
     const wrapper = mount(StartScreen);
-    const { useGameStore } = await import('../stores/game');
+    const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.loading = true;
     store.fileName = 'test.mp3';
     await wrapper.vm.$nextTick();
-    expect(wrapper.find('.file-name').text()).toContain('加载中');
+    expect(wrapper.find('.file-name').text()).toContain('分析中');
   });
 
   it('should show error message when set', async () => {
     const wrapper = mount(StartScreen);
-    const { useGameStore } = await import('../stores/game');
+    const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.errorMsg = '无法解析该音频文件';
     await wrapper.vm.$nextTick();
@@ -192,25 +215,26 @@ describe('GameScreen', () => {
 
   it('should show pause overlay when paused', async () => {
     const wrapper = mount(GameScreen);
-    const { useGameStore } = await import('../stores/game');
+    const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.screen = 'paused';
     await wrapper.vm.$nextTick();
     expect(wrapper.findComponent(PauseOverlay).exists()).toBe(true);
   });
 
-  it('should show end overlay when ended', async () => {
+  it('should not render results screen inside game screen', async () => {
     const wrapper = mount(GameScreen);
-    const { useGameStore } = await import('../stores/game');
+    const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
-    store.screen = 'ended';
+    store.screen = 'results';
     await wrapper.vm.$nextTick();
-    expect(wrapper.findComponent(EndOverlay).exists()).toBe(true);
+    // ResultsScreen is rendered by App.vue, not inside GameScreen
+    expect(wrapper.findComponent(ResultsScreen).exists()).toBe(false);
   });
 
   it('should call togglePause on pause button click', async () => {
     const wrapper = mount(GameScreen);
-    const { useGameStore } = await import('../stores/game');
+    const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     const spy = vi.spyOn(store, 'togglePause');
     store.screen = 'playing';

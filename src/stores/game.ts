@@ -1,12 +1,28 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { analyzeAudio, loadAudioFile, NoteEvent } from '../audio';
-import { Renderer, Block } from '../renderer';
-import { Game, HitResult } from '../game';
+import { analyzeAudio, loadAudioFile, NoteEvent } from '@/audio';
+import { Renderer, Block } from '@/renderer';
+import { Game, HitResult } from '@/game';
+import { storeAudioBuffer, loadStoredAudio, clearStoredAudio, hasStoredAudio } from '@/storage';
+
+export type Difficulty = 'easy' | 'normal' | 'hard';
+export type Screen = 'start' | 'countdown' | 'playing' | 'paused' | 'results';
+
+export interface GameResults {
+  score: number;
+  maxCombo: number;
+  totalNotes: number;
+  perfectCount: number;
+  greatCount: number;
+  goodCount: number;
+  missCount: number;
+  accuracy: number;
+  grade: string;
+}
 
 export const useGameStore = defineStore('game', () => {
   // UI state
-  const screen = ref<'start' | 'playing' | 'paused' | 'ended'>('start');
+  const screen = ref<Screen>('start');
   const score = ref(0);
   const combo = ref(0);
   const maxCombo = ref(0);
@@ -14,6 +30,15 @@ export const useGameStore = defineStore('game', () => {
   const fileName = ref('');
   const loading = ref(false);
   const errorMsg = ref('');
+  const hasStored = ref(false);
+  const restoring = ref(false);
+  const difficulty = ref<Difficulty>('normal');
+  const countdownValue = ref(3);
+  const timeRemaining = ref(0);
+  const results = ref<GameResults | null>(null);
+
+  // Hit stats for results
+  let hitStats = { perfect: 0, great: 0, good: 0, miss: 0, total: 0 };
 
   // Internal game engine
   let engine: Game | null = null;
@@ -33,12 +58,27 @@ export const useGameStore = defineStore('game', () => {
     renderer.resize();
     window.addEventListener('resize', () => renderer?.resize());
 
-    // If audio was loaded before renderer, start game now
     if (pendingBuffer && pendingNotes) {
-      startGame(pendingBuffer, pendingNotes);
+      beginCountdown(pendingBuffer, pendingNotes);
       pendingBuffer = null;
       pendingNotes = null;
     }
+  }
+
+  function beginCountdown(audioBuffer: AudioBuffer, notes: NoteEvent[]): void {
+    countdownValue.value = 3;
+    screen.value = 'countdown';
+    hitStats = { perfect: 0, great: 0, good: 0, miss: 0, total: notes.length };
+
+    const tick = (): void => {
+      if (countdownValue.value > 1) {
+        countdownValue.value--;
+        setTimeout(tick, 700);
+      } else {
+        startGame(audioBuffer, notes);
+      }
+    };
+    setTimeout(tick, 700);
   }
 
   async function loadFile(file: File): Promise<void> {
@@ -48,14 +88,18 @@ export const useGameStore = defineStore('game', () => {
 
     try {
       const audioBuffer = await loadAudioFile(file);
-      const analysis = await analyzeAudio(audioBuffer, 'normal');
+      const analysis = analyzeAudio(audioBuffer, difficulty.value);
+
+      void storeAudioBuffer(audioBuffer, file.name).then(() => {
+        hasStored.value = true;
+      });
 
       if (renderer) {
-        startGame(audioBuffer, analysis.notes);
+        beginCountdown(audioBuffer, analysis.notes);
       } else {
         pendingBuffer = audioBuffer;
         pendingNotes = analysis.notes;
-        screen.value = 'playing';
+        screen.value = 'countdown';
       }
     } catch (err: unknown) {
       errorMsg.value = '无法解析该音频文件';
@@ -63,6 +107,47 @@ export const useGameStore = defineStore('game', () => {
     } finally {
       loading.value = false;
     }
+  }
+
+  async function restoreStored(): Promise<void> {
+    if (restoring.value) return;
+    restoring.value = true;
+    errorMsg.value = '';
+
+    try {
+      const result = await loadStoredAudio();
+      if (!result) {
+        hasStored.value = false;
+        return;
+      }
+
+      fileName.value = result.fileName;
+      const analysis = analyzeAudio(result.buffer, difficulty.value);
+
+      if (renderer) {
+        beginCountdown(result.buffer, analysis.notes);
+      } else {
+        pendingBuffer = result.buffer;
+        pendingNotes = analysis.notes;
+        screen.value = 'countdown';
+      }
+    } catch (err: unknown) {
+      errorMsg.value = '无法恢复缓存音频';
+      console.error(err);
+      hasStored.value = false;
+    } finally {
+      restoring.value = false;
+    }
+  }
+
+  async function clearStored(): Promise<void> {
+    await clearStoredAudio();
+    hasStored.value = false;
+    fileName.value = '';
+  }
+
+  async function checkStored(): Promise<void> {
+    hasStored.value = await hasStoredAudio();
   }
 
   function startGame(audioBuffer: AudioBuffer, notes: NoteEvent[]): void {
@@ -122,6 +207,9 @@ export const useGameStore = defineStore('game', () => {
     renderer.restoreShake();
 
     progress.value = engine.getProgress();
+    if (engine.buffer) {
+      timeRemaining.value = Math.max(0, Math.ceil(engine.buffer.duration - engine.getElapsed()));
+    }
 
     if (engine.getProgress() < 1) {
       animId = requestAnimationFrame(loop);
@@ -190,7 +278,43 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function endGame(): void {
-    screen.value = 'ended';
+    if (engine) {
+      // Count misses from blocks that weren't hit
+      for (const block of engine.blocks) {
+        if (block.missed) hitStats.miss++;
+      }
+    }
+
+    const totalNotes = hitStats.total;
+    const hitCount = hitStats.perfect + hitStats.great + hitStats.good;
+    const accuracy = totalNotes > 0 ? hitCount / totalNotes : 0;
+
+    let grade: string;
+    if (accuracy >= 0.95) grade = 'S';
+    else if (accuracy >= 0.9) grade = 'A';
+    else if (accuracy >= 0.8) grade = 'B';
+    else if (accuracy >= 0.7) grade = 'C';
+    else grade = 'D';
+
+    results.value = {
+      score: score.value,
+      maxCombo: maxCombo.value,
+      totalNotes,
+      perfectCount: hitStats.perfect,
+      greatCount: hitStats.great,
+      goodCount: hitStats.good,
+      missCount: hitStats.miss,
+      accuracy,
+      grade,
+    };
+
+    screen.value = 'results';
+  }
+
+  function recordHit(label: string): void {
+    if (label === 'PERFECT') hitStats.perfect++;
+    else if (label === 'GREAT') hitStats.great++;
+    else if (label === 'GOOD') hitStats.good++;
   }
 
   function reset(): void {
@@ -206,6 +330,18 @@ export const useGameStore = defineStore('game', () => {
     errorMsg.value = '';
   }
 
+  function quit(): void {
+    if (engine) engine.stop();
+    cancelAnimationFrame(animId);
+    engine = null;
+    screen.value = 'start';
+    results.value = null;
+  }
+
+  function setDifficulty(d: Difficulty): void {
+    difficulty.value = d;
+  }
+
   return {
     screen,
     score,
@@ -215,12 +351,23 @@ export const useGameStore = defineStore('game', () => {
     fileName,
     loading,
     errorMsg,
+    hasStored,
+    restoring,
+    difficulty,
+    countdownValue,
+    timeRemaining,
+    results,
     comboText,
     scoreText,
     progressPercent,
+    setDifficulty,
     initRenderer,
     loadFile,
+    restoreStored,
+    clearStored,
+    checkStored,
     processHit,
+    recordHit,
     hitPointer,
     hitLane,
     hitAll,
@@ -229,6 +376,7 @@ export const useGameStore = defineStore('game', () => {
     resume,
     togglePause,
     restart,
+    quit,
     reset,
   };
 });

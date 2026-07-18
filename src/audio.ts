@@ -66,7 +66,7 @@ class WindowTable {
     this.n = n;
     this.coeff = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-      this.coeff[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (n - 1)));
+      this.coeff[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (n - 1)));
     }
   }
 }
@@ -83,7 +83,8 @@ class AWeightTable {
       // IEC 61672:2003 A-weighting approximation
       const f2 = f * f;
       const num = 12194 * 12194 * f2 * f2;
-      const den = (f2 + 20.6 * 20.6) *
+      const den =
+        (f2 + 20.6 * 20.6) *
         Math.sqrt((f2 + 107.7 * 107.7) * (f2 + 737.9 * 737.9)) *
         (f2 + 12194 * 12194);
       this.weights[i] = den > 0 ? num / den : 0;
@@ -109,8 +110,12 @@ function fftInPlace(re: Float64Array, im: Float64Array, twiddles: TwiddleTable):
     for (; j & bit; bit >>= 1) j ^= bit;
     j ^= bit;
     if (i < j) {
-      let tmp = re[i]; re[i] = re[j]; re[j] = tmp;
-      tmp = im[i]; im[i] = im[j]; im[j] = tmp;
+      let tmp = re[i];
+      re[i] = re[j];
+      re[j] = tmp;
+      tmp = im[i];
+      im[i] = im[j];
+      im[j] = tmp;
     }
   }
 
@@ -187,17 +192,13 @@ interface FrameFeatures {
   spectralCrest: number;
 }
 
-function processFrame(
-  data: Float64Array,
-  offset: number,
-  ctx: AnalysisContext,
-): FrameFeatures {
+function processFrame(data: Float64Array, offset: number, ctx: AnalysisContext): FrameFeatures {
   const { fftSize, window, twiddles, reBuf, imBuf, aWeight } = ctx;
 
   // Apply window and copy to buffers
   for (let i = 0; i < fftSize; i++) {
     const idx = offset + i;
-    reBuf[i] = (idx >= 0 && idx < data.length) ? data[idx] * window.coeff[i] : 0;
+    reBuf[i] = idx >= 0 && idx < data.length ? data[idx] * window.coeff[i] : 0;
     imBuf[i] = 0;
   }
 
@@ -273,9 +274,15 @@ function processFrame(
   }
 
   return {
-    mags, re: new Float64Array(reBuf), im: new Float64Array(imBuf),
-    spectralFlux, complexFlux,
-    bassEnergy, midEnergy, highEnergy, totalEnergy,
+    mags,
+    re: new Float64Array(reBuf),
+    im: new Float64Array(imBuf),
+    spectralFlux,
+    complexFlux,
+    bassEnergy,
+    midEnergy,
+    highEnergy,
+    totalEnergy,
     spectralCrest,
   };
 }
@@ -397,7 +404,10 @@ function parabolicInterp(arr: Float64Array, peakIdx: number): number {
 }
 
 function snapToCommonBPM(bpm: number): number {
-  const common = [60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150, 160, 170, 180, 190, 200];
+  const common = [
+    60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150, 160, 170, 180,
+    190, 200,
+  ];
   for (const c of common) {
     if (Math.abs(bpm - c) < 2) return c;
   }
@@ -411,7 +421,7 @@ function snapToCommonBPM(bpm: number): number {
 
 // ─── Dynamic Programming Beat Tracking ───────────────────────────────────────
 
-function trackBeats(
+export function trackBeats(
   onsetFunc: Float64Array,
   bpm: number,
   sampleRate: number,
@@ -563,7 +573,7 @@ function buildBeatGrid(
 
     for (const onset of onsets) {
       // How close is this onset to a grid position?
-      const phase = ((onset.time - offset) % beatInterval + beatInterval) % beatInterval;
+      const phase = (((onset.time - offset) % beatInterval) + beatInterval) % beatInterval;
       const dist = Math.min(phase, beatInterval - phase);
       const alignment = 1 - dist / (beatInterval * 0.5);
       score += alignment * onset.intensity;
@@ -694,9 +704,11 @@ function detectSections(
   const boundaries: number[] = [0];
   const noveltyNorm = normalize(novelty);
   for (let i = 2; i < numSegments - 2; i++) {
-    if (noveltyNorm[i] > 0.3 &&
+    if (
+      noveltyNorm[i] > 0.3 &&
       noveltyNorm[i] > noveltyNorm[i - 1] &&
-      noveltyNorm[i] > noveltyNorm[i + 1]) {
+      noveltyNorm[i] > noveltyNorm[i + 1]
+    ) {
       boundaries.push(i * segmentFrames);
     }
   }
@@ -737,7 +749,9 @@ function detectSections(
 }
 
 function cosineSimilarity(a: Float64Array, b: Float64Array): number {
-  let dot = 0, normA = 0, normB = 0;
+  let dot = 0,
+    normA = 0,
+    normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     normA += a[i] * a[i];
@@ -786,7 +800,16 @@ function generateNotes(
   }
 
   if (difficulty !== 'easy') {
-    addSubBeatNotes(notes, beatInterval, params, bassEnergy, midEnergy, highEnergy, sampleRate, hopSize);
+    addSubBeatNotes(
+      notes,
+      beatInterval,
+      params,
+      bassEnergy,
+      midEnergy,
+      highEnergy,
+      sampleRate,
+      hopSize,
+    );
   }
 
   return notes.sort((a, b) => a.time - b.time);
@@ -803,11 +826,29 @@ interface DifficultyParams {
 function getDifficultyParams(difficulty: Difficulty): DifficultyParams {
   switch (difficulty) {
     case 'easy':
-      return { minIntensityRatio: 0.4, maxNotesPerSecond: 3, minGapFactor: 0.8, subBeatProbability: 0, doubleNoteProbability: 0 };
+      return {
+        minIntensityRatio: 0.4,
+        maxNotesPerSecond: 3,
+        minGapFactor: 0.8,
+        subBeatProbability: 0,
+        doubleNoteProbability: 0,
+      };
     case 'normal':
-      return { minIntensityRatio: 0.2, maxNotesPerSecond: 5, minGapFactor: 0.5, subBeatProbability: 0.15, doubleNoteProbability: 0.1 };
+      return {
+        minIntensityRatio: 0.2,
+        maxNotesPerSecond: 5,
+        minGapFactor: 0.5,
+        subBeatProbability: 0.15,
+        doubleNoteProbability: 0.1,
+      };
     case 'hard':
-      return { minIntensityRatio: 0.1, maxNotesPerSecond: 8, minGapFactor: 0.3, subBeatProbability: 0.3, doubleNoteProbability: 0.2 };
+      return {
+        minIntensityRatio: 0.1,
+        maxNotesPerSecond: 8,
+        minGapFactor: 0.3,
+        subBeatProbability: 0.3,
+        doubleNoteProbability: 0.2,
+      };
   }
 }
 
@@ -826,7 +867,10 @@ function filterByDifficulty(
     if (onset.intensity < params.minIntensityRatio) continue;
     let tooClose = false;
     for (const existing of result) {
-      if (Math.abs(onset.time - existing.time) < minGap) { tooClose = true; break; }
+      if (Math.abs(onset.time - existing.time) < minGap) {
+        tooClose = true;
+        break;
+      }
     }
     if (!tooClose) result.push(onset);
   }
@@ -929,10 +973,10 @@ function addSubBeatNotes(
 
 // ─── Main Analysis Pipeline ──────────────────────────────────────────────────
 
-export async function analyzeAudio(
+export function analyzeAudio(
   buffer: AudioBuffer,
   difficulty: Difficulty = 'normal',
-): Promise<AnalysisResult> {
+): AnalysisResult {
   const sampleRate = buffer.sampleRate;
   const raw = buffer.getChannelData(0);
 
@@ -986,8 +1030,14 @@ export async function analyzeAudio(
 
   // 9. Generate notes
   const notes = generateNotes(
-    quantizedOnsets, bassEnergy, midEnergy, highEnergy,
-    sampleRate, hopSize, difficulty, bpm,
+    quantizedOnsets,
+    bassEnergy,
+    midEnergy,
+    highEnergy,
+    sampleRate,
+    hopSize,
+    difficulty,
+    bpm,
   );
 
   return { bpm, duration, notes, beatGrid, sections };

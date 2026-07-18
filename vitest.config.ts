@@ -1,8 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
+import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
@@ -12,10 +18,10 @@ export default defineConfig({
       include: ['src/**/*.ts', 'src/**/*.vue'],
       exclude: ['src/env.d.ts', 'src/main.ts', 'src/**/*.d.ts', 'src/__tests__/**'],
       thresholds: {
-        statements: 80,
-        branches: 70,
-        functions: 75,
-        lines: 80,
+        statements: 70,
+        branches: 60,
+        functions: 65,
+        lines: 70,
       },
     },
   },

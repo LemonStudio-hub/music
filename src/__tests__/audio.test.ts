@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { analyzeAudio, loadAudioFile } from '../audio';
+import { analyzeAudio, loadAudioFile } from '@/audio';
 
 function createMockAudioBuffer(channelData: Float32Array, sampleRate = 44100): AudioBuffer {
   return {
@@ -14,10 +14,10 @@ function createMockAudioBuffer(channelData: Float32Array, sampleRate = 44100): A
 }
 
 describe('analyzeAudio', () => {
-  it('should return AnalysisResult with required fields', async () => {
+  it('should return AnalysisResult with required fields', () => {
     const silentData = new Float32Array(44100);
     const buffer = createMockAudioBuffer(silentData);
-    const result = await analyzeAudio(buffer);
+    const result = analyzeAudio(buffer);
     expect(result).toHaveProperty('bpm');
     expect(result).toHaveProperty('duration');
     expect(result).toHaveProperty('notes');
@@ -30,16 +30,16 @@ describe('analyzeAudio', () => {
     expect(result.duration).toBeGreaterThan(0);
   });
 
-  it('should handle short audio buffers', async () => {
+  it('should handle short audio buffers', () => {
     const shortData = new Float32Array(100);
     shortData.fill(0.5);
     const buffer = createMockAudioBuffer(shortData);
-    const result = await analyzeAudio(buffer);
+    const result = analyzeAudio(buffer);
     expect(result.bpm).toBeGreaterThan(0);
     expect(Array.isArray(result.notes)).toBe(true);
   });
 
-  it('should detect notes sorted by time', async () => {
+  it('should detect notes sorted by time', () => {
     const data = new Float32Array(44100 * 3);
     for (let i = 44100; i < 44500; i++) data[i] = 0.9;
     for (let i = 88200; i < 88600; i++) data[i] = 0.9;
@@ -62,7 +62,7 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', TestOfflineAudioContext);
 
     const buffer = createMockAudioBuffer(data);
-    const result = await analyzeAudio(buffer);
+    const result = analyzeAudio(buffer);
 
     for (let i = 1; i < result.notes.length; i++) {
       expect(result.notes[i].time).toBeGreaterThanOrEqual(result.notes[i - 1].time);
@@ -71,7 +71,7 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', originalOffline);
   });
 
-  it('should assign lanes in range 0-3', async () => {
+  it('should assign lanes in range 0-3', () => {
     const data = new Float32Array(44100 * 2);
     for (let i = 22050; i < 23000; i++) data[i] = 0.8;
     for (let i = 44100; i < 45000; i++) data[i] = 0.8;
@@ -94,7 +94,7 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', TestOfflineAudioContext);
 
     const buffer = createMockAudioBuffer(data);
-    const result = await analyzeAudio(buffer);
+    const result = analyzeAudio(buffer);
 
     for (const note of result.notes) {
       expect(note.lane).toBeGreaterThanOrEqual(0);
@@ -106,7 +106,7 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', originalOffline);
   });
 
-  it('should generate more notes on hard difficulty', async () => {
+  it('should generate more notes on hard difficulty', () => {
     const data = new Float32Array(44100 * 3);
     for (let i = 22050; i < 23000; i++) data[i] = 0.8;
     for (let i = 44100; i < 45000; i++) data[i] = 0.8;
@@ -131,8 +131,8 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', TestOfflineAudioContext);
 
     const buffer = createMockAudioBuffer(data);
-    const easy = await analyzeAudio(buffer, 'easy');
-    const hard = await analyzeAudio(buffer, 'hard');
+    const easy = analyzeAudio(buffer, 'easy');
+    const hard = analyzeAudio(buffer, 'hard');
 
     // Hard should have at least as many notes as easy
     expect(hard.notes.length).toBeGreaterThanOrEqual(easy.notes.length);
@@ -140,7 +140,7 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', originalOffline);
   });
 
-  it('should detect BPM in valid range', async () => {
+  it('should detect BPM in valid range', () => {
     const data = new Float32Array(44100 * 5);
     // Create periodic beats at ~120 BPM
     const beatInterval = Math.floor(44100 * 0.5); // 120 BPM
@@ -168,7 +168,7 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', TestOfflineAudioContext);
 
     const buffer = createMockAudioBuffer(data);
-    const result = await analyzeAudio(buffer);
+    const result = analyzeAudio(buffer);
 
     expect(result.bpm).toBeGreaterThanOrEqual(60);
     expect(result.bpm).toBeLessThanOrEqual(200);
@@ -176,10 +176,10 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', originalOffline);
   });
 
-  it('should generate beat grid covering duration', async () => {
+  it('should generate beat grid covering duration', () => {
     const data = new Float32Array(44100 * 3);
     const buffer = createMockAudioBuffer(data);
-    const result = await analyzeAudio(buffer);
+    const result = analyzeAudio(buffer);
 
     if (result.beatGrid.length > 0) {
       expect(result.beatGrid[0]).toBeGreaterThanOrEqual(0);
@@ -187,7 +187,7 @@ describe('analyzeAudio', () => {
     }
   });
 
-  it('should detect sections', async () => {
+  it('should detect sections', () => {
     const data = new Float32Array(44100 * 10);
     // Create energy variation
     for (let i = 0; i < data.length; i++) {
@@ -213,7 +213,7 @@ describe('analyzeAudio', () => {
     vi.stubGlobal('OfflineAudioContext', TestOfflineAudioContext);
 
     const buffer = createMockAudioBuffer(data);
-    const result = await analyzeAudio(buffer);
+    const result = analyzeAudio(buffer);
 
     expect(result.sections.length).toBeGreaterThan(0);
     for (const section of result.sections) {
@@ -268,5 +268,31 @@ describe('loadAudioFile', () => {
     if (originalWebkit) {
       (globalThis as Record<string, unknown>).webkitAudioContext = originalWebkit;
     }
+  });
+
+  it('should handle multi-channel audio', async () => {
+    const mockBuffer = {
+      duration: 1,
+      length: 44100,
+      numberOfChannels: 2,
+      sampleRate: 44100,
+      getChannelData: vi.fn((ch: number) => new Float32Array(44100).fill(ch === 0 ? 0.5 : 0.3)),
+      copyFromChannel: vi.fn(),
+      copyToChannel: vi.fn(),
+    } as unknown as AudioBuffer;
+
+    const originalAudio = globalThis.AudioContext;
+    class TestAudioContext {
+      decodeAudioData = vi.fn().mockResolvedValue(mockBuffer);
+      close = vi.fn().mockResolvedValue(undefined);
+    }
+    vi.stubGlobal('AudioContext', TestAudioContext);
+
+    const file = new File([new ArrayBuffer(100)], 'test.mp3', { type: 'audio/mpeg' });
+    const result = await loadAudioFile(file);
+    expect(result).toBe(mockBuffer);
+    expect(result.numberOfChannels).toBe(2);
+
+    vi.stubGlobal('AudioContext', originalAudio);
   });
 });

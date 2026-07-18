@@ -10,7 +10,10 @@
     "rootDir": ".",
     "jsx": "preserve",
     "jsxImportSource": "vue",
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "*.config.ts"]
 }
