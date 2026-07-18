@@ -1057,6 +1057,5 @@ export async function loadAudioFile(file: File): Promise<AudioBuffer> {
   if (!AudioCtx) throw new Error('AudioContext not supported');
   const audioCtx = new AudioCtx();
   const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  await audioCtx.close();
   return audioBuffer;
 }
