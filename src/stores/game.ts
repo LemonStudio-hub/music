@@ -74,6 +74,10 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function requestResize(): void {
+    renderer?.resize();
+  }
+
   function beginCountdown(audioBuffer: AudioBuffer, notes: NoteEvent[]): void {
     countdownValue.value = 3;
     screen.value = 'countdown';
@@ -560,6 +564,7 @@ export const useGameStore = defineStore('game', () => {
     setAnalysisData,
     setDifficulty,
     initRenderer,
+    requestResize,
     loadFile,
     restoreStored,
     clearStored,

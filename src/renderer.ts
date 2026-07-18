@@ -49,8 +49,9 @@ export class Renderer {
   }
 
   resize(): void {
-    this.w = window.innerWidth;
-    this.h = window.innerHeight;
+    const parent = this.canvas.parentElement;
+    this.w = parent ? parent.clientWidth : window.innerWidth;
+    this.h = parent ? parent.clientHeight : window.innerHeight;
     this.canvas.width = this.w * this.dpr;
     this.canvas.height = this.h * this.dpr;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);

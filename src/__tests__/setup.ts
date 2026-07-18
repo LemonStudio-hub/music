@@ -44,6 +44,17 @@ HTMLCanvasElement.prototype.getContext = function (
   return null;
 } as typeof HTMLCanvasElement.prototype.getContext;
 
+// Mock ResizeObserver
+vi.stubGlobal(
+  'ResizeObserver',
+  class ResizeObserver {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+    constructor(_callback: ResizeObserverCallback) {}
+  },
+);
+
 // Mock matchMedia
 vi.stubGlobal(
   'matchMedia',
