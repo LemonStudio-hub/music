@@ -159,6 +159,11 @@ interface AnalysisContext {
   prevRe: Float64Array;
   prevIm: Float64Array;
   prevMags: Float64Array | null;
+  // Reusable buffers to avoid per-frame allocations
+  frameRe: Float64Array;
+  outRe: Float64Array;
+  outIm: Float64Array;
+  magsBuf: Float64Array;
 }
 
 function createAnalysisContext(fftSize: number, sampleRate: number): AnalysisContext {
@@ -174,15 +179,16 @@ function createAnalysisContext(fftSize: number, sampleRate: number): AnalysisCon
     prevRe: new Float64Array(fftSize),
     prevIm: new Float64Array(fftSize),
     prevMags: null,
+    frameRe: new Float64Array(fftSize),
+    outRe: new Float64Array(fftSize),
+    outIm: new Float64Array(fftSize),
+    magsBuf: new Float64Array(fftSize / 2),
   };
 }
 
 // ─── Spectral Frame Processing ───────────────────────────────────────────────
 
 interface FrameFeatures {
-  mags: Float64Array;
-  re: Float64Array;
-  im: Float64Array;
   spectralFlux: number;
   complexFlux: number;
   bassEnergy: number;
@@ -193,7 +199,7 @@ interface FrameFeatures {
 }
 
 function processFrame(data: Float64Array, offset: number, ctx: AnalysisContext): FrameFeatures {
-  const { fftSize, window, twiddles, reBuf, imBuf, aWeight } = ctx;
+  const { fftSize, window, twiddles, reBuf, imBuf, aWeight, frameRe, magsBuf } = ctx;
 
   // Apply window and copy to buffers
   for (let i = 0; i < fftSize; i++) {
@@ -203,30 +209,30 @@ function processFrame(data: Float64Array, offset: number, ctx: AnalysisContext):
   }
 
   // Store pre-FFT real values for complex domain onset detection
-  const frameRe = new Float64Array(reBuf);
+  frameRe.set(reBuf);
 
   // FFT
   fftInPlace(reBuf, imBuf, twiddles);
 
   // Magnitude spectrum with A-weighting
-  const mags = new Float64Array(fftSize / 2);
-  for (let i = 0; i < fftSize / 2; i++) {
+  const halfFft = fftSize / 2;
+  for (let i = 0; i < halfFft; i++) {
     const raw = Math.sqrt(reBuf[i] * reBuf[i] + imBuf[i] * imBuf[i]);
-    mags[i] = raw * aWeight.weights[i];
+    magsBuf[i] = raw * aWeight.weights[i];
   }
 
   // Band energies (A-weighted)
   const binHz = ctx.sampleRate / fftSize;
-  const bassEnergy = bandEnergy(mags, binHz, 20, 250);
-  const midEnergy = bandEnergy(mags, binHz, 250, 2000);
-  const highEnergy = bandEnergy(mags, binHz, 2000, 16000);
+  const bassEnergy = bandEnergy(magsBuf, binHz, 20, 250);
+  const midEnergy = bandEnergy(magsBuf, binHz, 250, 2000);
+  const highEnergy = bandEnergy(magsBuf, binHz, 2000, 16000);
   const totalEnergy = bassEnergy + midEnergy + highEnergy;
 
   // Spectral flux (half-wave rectified magnitude difference)
   let spectralFlux = 0;
   if (ctx.prevMags) {
-    for (let i = 0; i < mags.length; i++) {
-      const diff = mags[i] - ctx.prevMags[i];
+    for (let i = 0; i < halfFft; i++) {
+      const diff = magsBuf[i] - ctx.prevMags[i];
       if (diff > 0) spectralFlux += diff;
     }
   }
@@ -236,9 +242,9 @@ function processFrame(data: Float64Array, offset: number, ctx: AnalysisContext):
   let complexFlux = 0;
   if (ctx.prevMags) {
     const hopSize = ctx.hopSize;
-    for (let i = 0; i < fftSize / 2; i++) {
+    for (let i = 0; i < halfFft; i++) {
       const prevMag = ctx.prevMags[i] || 0;
-      const curMag = mags[i];
+      const curMag = magsBuf[i];
       if (prevMag > 1e-10 && curMag > 1e-10) {
         // Expected phase advance per bin
         const expectedPhase = (2 * Math.PI * i * hopSize) / fftSize;
@@ -259,24 +265,22 @@ function processFrame(data: Float64Array, offset: number, ctx: AnalysisContext):
   // Spectral crest factor (ratio of max to mean - indicates percussiveness)
   let maxMag = 0;
   let sumMag = 0;
-  for (let i = 0; i < mags.length; i++) {
-    if (mags[i] > maxMag) maxMag = mags[i];
-    sumMag += mags[i];
+  for (let i = 0; i < halfFft; i++) {
+    if (magsBuf[i] > maxMag) maxMag = magsBuf[i];
+    sumMag += magsBuf[i];
   }
-  const meanMag = sumMag / mags.length;
+  const meanMag = sumMag / halfFft;
   const spectralCrest = meanMag > 0 ? maxMag / meanMag : 0;
 
-  // Save for next frame
-  ctx.prevMags = mags;
+  // Save for next frame — copy magsBuf since it's reused
+  ctx.prevMags ??= new Float64Array(halfFft);
+  ctx.prevMags.set(magsBuf);
   for (let i = 0; i < fftSize; i++) {
     ctx.prevRe[i] = frameRe[i];
     ctx.prevIm[i] = imBuf[i];
   }
 
   return {
-    mags,
-    re: new Float64Array(reBuf),
-    im: new Float64Array(imBuf),
     spectralFlux,
     complexFlux,
     bassEnergy,
@@ -305,28 +309,31 @@ function computeOnsetFunction(features: FrameFeatures[]): Float64Array {
   const n = features.length;
   const onsetFunc = new Float64Array(n);
 
-  // Normalize each feature to [0, 1]
-  const sfNorm = normalize(new Float64Array(features.map(f => f.spectralFlux)));
-  const cfNorm = normalize(new Float64Array(features.map(f => f.complexFlux)));
-  const crestNorm = normalize(new Float64Array(features.map(f => f.spectralCrest)));
-
-  // Weighted combination (spectral flux 0.5, complex domain 0.3, crest 0.2)
+  // Find max for each feature in a single pass
+  let sfMax = 0,
+    cfMax = 0,
+    crestMax = 0;
   for (let i = 0; i < n; i++) {
-    onsetFunc[i] = 0.5 * sfNorm[i] + 0.3 * cfNorm[i] + 0.2 * crestNorm[i];
+    const f = features[i];
+    if (f.spectralFlux > sfMax) sfMax = f.spectralFlux;
+    if (f.complexFlux > cfMax) cfMax = f.complexFlux;
+    if (f.spectralCrest > crestMax) crestMax = f.spectralCrest;
+  }
+
+  // Weighted combination with inline normalization (spectral flux 0.5, complex domain 0.3, crest 0.2)
+  const sfScale = sfMax > 0 ? 1 / sfMax : 0;
+  const cfScale = cfMax > 0 ? 1 / cfMax : 0;
+  const crestScale = crestMax > 0 ? 1 / crestMax : 0;
+
+  for (let i = 0; i < n; i++) {
+    const f = features[i];
+    onsetFunc[i] =
+      0.5 * f.spectralFlux * sfScale +
+      0.3 * f.complexFlux * cfScale +
+      0.2 * f.spectralCrest * crestScale;
   }
 
   return onsetFunc;
-}
-
-function normalize(arr: Float64Array): Float64Array {
-  let max = 0;
-  for (let i = 0; i < arr.length; i++) {
-    if (arr[i] > max) max = arr[i];
-  }
-  if (max === 0) return arr;
-  const result = new Float64Array(arr.length);
-  for (let i = 0; i < arr.length; i++) result[i] = arr[i] / max;
-  return result;
 }
 
 // ─── Multi-Resolution Autocorrelation BPM Detection ─────────────────────────
@@ -639,6 +646,17 @@ function quantizeToBeatGrid(
   }
 
   return quantized.sort((a, b) => a.time - b.time);
+}
+
+function normalize(arr: Float64Array): Float64Array {
+  let max = 0;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] > max) max = arr[i];
+  }
+  if (max === 0) return arr;
+  const inv = 1 / max;
+  for (let i = 0; i < arr.length; i++) arr[i] *= inv;
+  return arr;
 }
 
 // ─── Section Detection via Self-Similarity ───────────────────────────────────
@@ -1051,10 +1069,7 @@ export async function analyzeAudio(
 
 // ─── File Loading ────────────────────────────────────────────────────────────
 
-interface WindowWithWebkitAudio {
-  AudioContext?: typeof AudioContext;
-  webkitAudioContext?: typeof AudioContext;
-}
+import { createAudioContext } from '@/audio-context';
 
 export async function loadAudioFile(
   file: File,
@@ -1089,10 +1104,8 @@ export async function loadAudioFile(
     arrayBuffer = await file.arrayBuffer();
   }
 
-  const win = window as unknown as WindowWithWebkitAudio;
-  const AudioCtx = win.AudioContext ?? win.webkitAudioContext;
-  if (!AudioCtx) throw new Error('AudioContext not supported');
-  const audioCtx = new AudioCtx();
+  const audioCtx = createAudioContext();
   const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  void audioCtx.close();
   return audioBuffer;
 }

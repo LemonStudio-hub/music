@@ -1,6 +1,7 @@
 <template>
   <div
     class="hit-effect"
+    aria-hidden="true"
     :style="{
       color: props.color,
       left: props.x + 'px',

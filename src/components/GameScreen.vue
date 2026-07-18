@@ -1,11 +1,23 @@
 <template>
   <div class="game-screen">
-    <canvas ref="canvasRef" @pointerdown="onPointerDown"></canvas>
+    <canvas
+      ref="canvasRef"
+      role="img"
+      aria-label="Music blocks game"
+      @pointerdown="onPointerDown"
+    ></canvas>
     <div class="score" :class="{ pulse: scorePulse }">{{ store.scoreText }}</div>
     <div class="combo" :class="{ pulse: comboPulse }">{{ store.comboText }}</div>
     <div class="time-remaining">{{ formatTime(store.timeRemaining) }}</div>
-    <div class="progress-bar" :style="{ width: store.progressPercent }"></div>
-    <button class="pause-btn" @click="store.togglePause()">II</button>
+    <div
+      class="progress-bar"
+      role="progressbar"
+      :aria-valuenow="Math.round(store.progress * 100)"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      :style="{ width: store.progressPercent }"
+    ></div>
+    <button class="pause-btn" aria-label="Pause game" @click="store.togglePause()">II</button>
 
     <div class="touch-zones">
       <div
@@ -31,10 +43,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useGameStore } from '@/stores/game';
 import { Block } from '@/renderer';
-import { playHitSound, resumeAudio } from '@/sfx';
+import { playHitSound } from '@/sfx';
 import HitEffect from './HitEffect.vue';
 import PauseOverlay from './PauseOverlay.vue';
 
@@ -118,40 +130,36 @@ function onTouchLane(lane: number): void {
   processHit(store.hitLane(lane));
 }
 
+const keyLaneMap: Record<string, number> = { KeyD: 0, KeyF: 1, KeyJ: 2, KeyK: 3 };
+
+function onKeyDown(e: KeyboardEvent): void {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    const result = store.hitAll();
+    if (result) playHitSound(result.block.lane);
+    processHit(result);
+    return;
+  }
+  if (e.code === 'Escape') {
+    store.togglePause();
+    return;
+  }
+  if (e.code in keyLaneMap) {
+    const lane = keyLaneMap[e.code];
+    e.preventDefault();
+    playHitSound(lane);
+    processHit(store.hitLane(lane));
+  }
+}
+
 onMounted(() => {
   if (canvasRef.value) {
     store.initRenderer(canvasRef.value);
   }
+  document.addEventListener('keydown', onKeyDown);
+});
 
-  // Resume audio context on first user gesture
-  const resumeOnInteraction = (): void => {
-    void resumeAudio();
-    document.removeEventListener('pointerdown', resumeOnInteraction);
-    document.removeEventListener('keydown', resumeOnInteraction);
-  };
-  document.addEventListener('pointerdown', resumeOnInteraction);
-  document.addEventListener('keydown', resumeOnInteraction);
-
-  const keyLaneMap: Record<string, number> = { KeyD: 0, KeyF: 1, KeyJ: 2, KeyK: 3 };
-
-  document.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.code === 'Space') {
-      e.preventDefault();
-      const result = store.hitAll();
-      if (result) playHitSound(result.block.lane);
-      processHit(result);
-      return;
-    }
-    if (e.code === 'Escape') {
-      store.togglePause();
-      return;
-    }
-    if (e.code in keyLaneMap) {
-      const lane = keyLaneMap[e.code];
-      e.preventDefault();
-      playHitSound(lane);
-      processHit(store.hitLane(lane));
-    }
-  });
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeyDown);
 });
 </script>

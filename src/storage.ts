@@ -3,6 +3,8 @@
  * Stores uploaded audio so users don't re-upload on next visit.
  */
 
+import { createAudioContext } from '@/audio-context';
+
 const STORE_DIR = 'audio-cache';
 const META_KEY = 'meta';
 const AUDIO_KEY = 'audio';
@@ -135,15 +137,9 @@ function interleave(buffer: AudioBuffer): {
 }
 
 function deinterleave(interleaved: Float32Array, meta: StoredMeta): AudioBuffer {
-  const win = window as unknown as {
-    AudioContext?: typeof AudioContext;
-    webkitAudioContext?: typeof AudioContext;
-  };
-  const AudioCtx = win.AudioContext ?? win.webkitAudioContext;
-  if (!AudioCtx) throw new Error('AudioContext not supported');
-
-  const audioCtx = new AudioCtx();
+  const audioCtx = createAudioContext();
   const buffer = audioCtx.createBuffer(meta.channels, meta.length, meta.sampleRate);
+  void audioCtx.close();
 
   for (let ch = 0; ch < meta.channels; ch++) {
     const channelData = buffer.getChannelData(ch);
@@ -210,6 +206,23 @@ export async function storeAudioBuffer(buffer: AudioBuffer, fileName: string): P
   }
 }
 
+function isValidMeta(obj: unknown): obj is StoredMeta {
+  if (obj === null || obj === undefined || typeof obj !== 'object') return false;
+  const m = obj as Record<string, unknown>;
+  return (
+    typeof m.sampleRate === 'number' &&
+    m.sampleRate > 0 &&
+    typeof m.duration === 'number' &&
+    m.duration >= 0 &&
+    typeof m.channels === 'number' &&
+    (m.channels === 1 || m.channels === 2) &&
+    typeof m.length === 'number' &&
+    m.length >= 0 &&
+    typeof m.fileName === 'string' &&
+    m.fileName.length > 0
+  );
+}
+
 export async function loadStoredAudio(): Promise<{ buffer: AudioBuffer; fileName: string } | null> {
   try {
     let meta: StoredMeta | undefined;
@@ -220,7 +233,9 @@ export async function loadStoredAudio(): Promise<{ buffer: AudioBuffer; fileName
 
       const metaHandle = await dir.getFileHandle(META_KEY);
       const metaFile = await metaHandle.getFile();
-      meta = JSON.parse(await metaFile.text()) as StoredMeta;
+      const parsed: unknown = JSON.parse(await metaFile.text());
+      if (!isValidMeta(parsed)) return null;
+      meta = parsed;
 
       const audioHandle = await dir.getFileHandle(AUDIO_KEY);
       const audioFile = await audioHandle.getFile();

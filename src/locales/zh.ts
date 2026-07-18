@@ -17,6 +17,8 @@ export default {
     analyzingProgress: '分析中',
     errorParse: '无法解析该音频文件',
     errorRestore: '无法恢复缓存音频',
+    errorTooLarge: '文件过大，请选择100MB以内的文件',
+    errorNotAudio: '不支持的文件格式，请选择音频文件',
   },
   countdown: {
     ready: '准备',

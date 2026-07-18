@@ -5,18 +5,12 @@
  * Lane 2/3 (high):  1200Hz noise burst (hi-hat)
  */
 
+import { createAudioContext } from '@/audio-context';
+
 let audioCtx: AudioContext | null = null;
 
 export function getCtx(): AudioContext {
-  if (!audioCtx) {
-    const win = window as unknown as {
-      AudioContext?: typeof AudioContext;
-      webkitAudioContext?: typeof AudioContext;
-    };
-    const Ctor = win.AudioContext ?? win.webkitAudioContext;
-    if (!Ctor) throw new Error('AudioContext not supported');
-    audioCtx = new Ctor();
-  }
+  audioCtx ??= createAudioContext();
   return audioCtx;
 }
 

@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { analyzeAudio, loadAudioFile, NoteEvent } from '@/audio';
+import { analyzeAudio, loadAudioFile, type NoteEvent, type Difficulty } from '@/audio';
 import { Renderer, Block } from '@/renderer';
 import { Game, HitResult } from '@/game';
 import { resumeAudio } from '@/sfx';
 import { storeAudioBuffer, loadStoredAudio, clearStoredAudio, hasStoredAudio } from '@/storage';
 import { i18n } from '@/i18n';
 
-export type Difficulty = 'easy' | 'normal' | 'hard';
+export type { Difficulty };
 export type Screen = 'start' | 'countdown' | 'playing' | 'paused' | 'results';
 
 export interface GameResults {
@@ -48,6 +48,7 @@ export const useGameStore = defineStore('game', () => {
   let engine: Game | null = null;
   let renderer: Renderer | null = null;
   let animId = 0;
+  let onResize: (() => void) | null = null;
 
   // Pending game data (set when audio is loaded before renderer is ready)
   let pendingBuffer: AudioBuffer | null = null;
@@ -58,9 +59,13 @@ export const useGameStore = defineStore('game', () => {
   const progressPercent = computed(() => `${String(progress.value * 100)}%`);
 
   function initRenderer(canvas: HTMLCanvasElement): void {
+    if (onResize) window.removeEventListener('resize', onResize);
     renderer = new Renderer(canvas);
     renderer.resize();
-    window.addEventListener('resize', () => renderer?.resize());
+    onResize = (): void => {
+      renderer?.resize();
+    };
+    window.addEventListener('resize', onResize);
 
     if (pendingBuffer && pendingNotes) {
       beginCountdown(pendingBuffer, pendingNotes);
@@ -92,6 +97,21 @@ export const useGameStore = defineStore('game', () => {
     loadPhase.value = 'reading';
     loadPercent.value = 0;
 
+    // File validation
+    const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+    if (file.size > MAX_SIZE) {
+      errorMsg.value = i18n.global.t('start.errorTooLarge');
+      loading.value = false;
+      loadPhase.value = '';
+      return;
+    }
+    if (file.type && !file.type.startsWith('audio/')) {
+      errorMsg.value = i18n.global.t('start.errorNotAudio');
+      loading.value = false;
+      loadPhase.value = '';
+      return;
+    }
+
     try {
       await resumeAudio();
       const audioBuffer = await loadAudioFile(file, p => {
@@ -103,9 +123,14 @@ export const useGameStore = defineStore('game', () => {
         loadPercent.value = p;
       });
 
-      void storeAudioBuffer(audioBuffer, file.name).then(() => {
-        hasStored.value = true;
-      });
+      void storeAudioBuffer(audioBuffer, file.name).then(
+        () => {
+          hasStored.value = true;
+        },
+        (err: unknown) => {
+          console.error('Failed to cache audio:', err);
+        },
+      );
 
       if (renderer) {
         beginCountdown(audioBuffer, analysis.notes);
@@ -247,7 +272,7 @@ export const useGameStore = defineStore('game', () => {
 
   function hitPointer(e: PointerEvent): { block: Block; dist: number } | null {
     if (!engine || !renderer || screen.value !== 'playing') return null;
-    const lane = Math.floor(e.clientX / engine.laneWidth);
+    const lane = Math.min(Math.max(0, Math.floor(e.clientX / engine.laneWidth)), engine.lanes - 1);
     return engine.hitAt(lane);
   }
 
@@ -340,7 +365,10 @@ export const useGameStore = defineStore('game', () => {
   function reset(): void {
     if (engine) engine.stop();
     cancelAnimationFrame(animId);
+    if (onResize) window.removeEventListener('resize', onResize);
+    onResize = null;
     engine = null;
+    renderer = null;
     screen.value = 'start';
     score.value = 0;
     combo.value = 0;
@@ -353,7 +381,10 @@ export const useGameStore = defineStore('game', () => {
   function quit(): void {
     if (engine) engine.stop();
     cancelAnimationFrame(animId);
+    if (onResize) window.removeEventListener('resize', onResize);
+    onResize = null;
     engine = null;
+    renderer = null;
     screen.value = 'start';
     results.value = null;
   }

@@ -53,6 +53,7 @@ export class Game {
   startTime = 0;
   playing = false;
   paused = false;
+  pauseTime = 0;
   animId = 0;
   readonly fallDuration = 2.5;
   readonly lanes = 4;
@@ -119,7 +120,11 @@ export class Game {
     this.source = this.audioCtx.createBufferSource();
     this.source.buffer = this.buffer;
     this.source.connect(this.audioCtx.destination);
-    this.source.onended = onEnd;
+    this.source.onended = (): void => {
+      this.source?.disconnect();
+      this.source = null;
+      onEnd();
+    };
     this.startTime = this.audioCtx.currentTime + this.fallDuration;
     this.source.start(this.startTime);
     this.playing = true;
@@ -159,14 +164,15 @@ export class Game {
     }
 
     // Update ripples
-    for (let i = this.ripples.length - 1; i >= 0; i--) {
+    let rippleAlive = 0;
+    for (let i = 0; i < this.ripples.length; i++) {
       const r = this.ripples[i];
       r.radius += r.speed;
       r.alpha *= 0.92;
-      if (r.alpha < 0.02 || r.radius > r.maxRadius) {
-        this.ripples.splice(i, 1);
-      }
+      if (r.alpha < 0.02 || r.radius > r.maxRadius) continue;
+      this.ripples[rippleAlive++] = r;
     }
+    this.ripples.length = rippleAlive;
 
     for (const block of this.blocks) {
       block.prevY = block.y;
@@ -358,11 +364,17 @@ export class Game {
 
   pause(): void {
     this.paused = true;
+    this.pauseTime = this.audioCtx?.currentTime ?? 0;
     void this.audioCtx?.suspend();
   }
 
   resume(): void {
+    if (this.audioCtx && this.pauseTime > 0) {
+      const now = this.audioCtx.currentTime;
+      this.startTime += now - this.pauseTime;
+    }
     this.paused = false;
+    this.pauseTime = 0;
     void this.audioCtx?.resume();
   }
 

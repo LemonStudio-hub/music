@@ -17,6 +17,8 @@ export default {
     analyzingProgress: 'Analyzing',
     errorParse: 'Failed to parse audio file',
     errorRestore: 'Failed to restore cached audio',
+    errorTooLarge: 'File too large. Maximum size is 100 MB',
+    errorNotAudio: 'Unsupported format. Please select an audio file',
   },
   countdown: {
     ready: 'Ready',

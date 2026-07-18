@@ -1,5 +1,5 @@
 <template>
-  <div class="pause-overlay show">
+  <div class="pause-overlay show" role="dialog" aria-modal="true" :aria-label="t('pause.title')">
     <p>{{ t('pause.title') }}</p>
     <div class="pause-actions">
       <button class="btn-primary" @click="store.resume()">{{ t('pause.resume') }}</button>

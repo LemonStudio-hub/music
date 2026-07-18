@@ -1,11 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { createI18n } from 'vue-i18n';
+import zh from '@/locales/zh';
 import HitEffect from '@/components/HitEffect.vue';
 import PauseOverlay from '@/components/PauseOverlay.vue';
 import ResultsScreen from '@/components/ResultsScreen.vue';
 import StartScreen from '@/components/StartScreen.vue';
 import GameScreen from '@/components/GameScreen.vue';
+
+function createI18nInstance() {
+  return createI18n({
+    legacy: false,
+    locale: 'zh',
+    fallbackLocale: 'en',
+    messages: { zh, en: zh },
+  });
+}
 
 describe('HitEffect', () => {
   it('should render with props', () => {
@@ -36,12 +47,16 @@ describe('PauseOverlay', () => {
   });
 
   it('should render pause text', () => {
-    const wrapper = mount(PauseOverlay);
-    expect(wrapper.text()).toContain('PAUSED');
+    const wrapper = mount(PauseOverlay, {
+      global: { plugins: [createI18nInstance()] },
+    });
+    expect(wrapper.text()).toContain('已暂停');
   });
 
   it('should have resume, restart and quit buttons', () => {
-    const wrapper = mount(PauseOverlay);
+    const wrapper = mount(PauseOverlay, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const buttons = wrapper.findAll('button');
     expect(buttons).toHaveLength(3);
     expect(buttons[0].text()).toBe('继续');
@@ -50,15 +65,17 @@ describe('PauseOverlay', () => {
   });
 
   it('should call store.resume on resume click', async () => {
-    const wrapper = mount(PauseOverlay);
+    const wrapper = mount(PauseOverlay, {
+      global: { plugins: [createI18nInstance()] },
+    });
     await wrapper.findAll('button')[0].trigger('click');
-    // Store resume is called - we verify no errors thrown
   });
 
   it('should call store.restart on restart click', async () => {
-    const wrapper = mount(PauseOverlay);
+    const wrapper = mount(PauseOverlay, {
+      global: { plugins: [createI18nInstance()] },
+    });
     await wrapper.findAll('button')[1].trigger('click');
-    // Store restart is called - we verify no errors thrown
   });
 });
 
@@ -68,12 +85,16 @@ describe('ResultsScreen', () => {
   });
 
   it('should not render without results', () => {
-    const wrapper = mount(ResultsScreen);
+    const wrapper = mount(ResultsScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     expect(wrapper.find('.results-screen').exists()).toBe(false);
   });
 
   it('should render with results', async () => {
-    const wrapper = mount(ResultsScreen);
+    const wrapper = mount(ResultsScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.results = {
@@ -94,7 +115,9 @@ describe('ResultsScreen', () => {
   });
 
   it('should have action buttons', async () => {
-    const wrapper = mount(ResultsScreen);
+    const wrapper = mount(ResultsScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.results = {
@@ -120,24 +143,32 @@ describe('StartScreen', () => {
   });
 
   it('should render title', () => {
-    const wrapper = mount(StartScreen);
-    expect(wrapper.find('h1').text()).toBe('MUSIC BLOCKS');
+    const wrapper = mount(StartScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
+    expect(wrapper.find('h1').text()).toBe('Music Blocks');
   });
 
   it('should have file input', () => {
-    const wrapper = mount(StartScreen);
+    const wrapper = mount(StartScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const input = wrapper.find('input[type="file"]');
     expect(input.exists()).toBe(true);
   });
 
   it('should have correct accept attribute', () => {
-    const wrapper = mount(StartScreen);
+    const wrapper = mount(StartScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const input = wrapper.find('input[type="file"]');
     expect(input.attributes('accept')).toBe('audio/mpeg,audio/mp3,audio/*');
   });
 
   it('should show file name when set', async () => {
-    const wrapper = mount(StartScreen);
+    const wrapper = mount(StartScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.fileName = 'test.mp3';
@@ -146,17 +177,23 @@ describe('StartScreen', () => {
   });
 
   it('should show loading text when loading', async () => {
-    const wrapper = mount(StartScreen);
+    const wrapper = mount(StartScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.loading = true;
+    store.loadPhase = 'analyzing';
+    store.loadPercent = 50;
     store.fileName = 'test.mp3';
     await wrapper.vm.$nextTick();
-    expect(wrapper.find('.file-name').text()).toContain('分析中');
+    expect(wrapper.find('.load-progress').exists()).toBe(true);
   });
 
   it('should show error message when set', async () => {
-    const wrapper = mount(StartScreen);
+    const wrapper = mount(StartScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.errorMsg = '无法解析该音频文件';
@@ -165,7 +202,9 @@ describe('StartScreen', () => {
   });
 
   it('should toggle dragover class on drag events', async () => {
-    const wrapper = mount(StartScreen);
+    const wrapper = mount(StartScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const dropZone = wrapper.find('.drop-zone');
 
     await dropZone.trigger('dragover');
@@ -182,39 +221,53 @@ describe('GameScreen', () => {
   });
 
   it('should render canvas', () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     expect(wrapper.find('canvas').exists()).toBe(true);
   });
 
   it('should render score display', () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     expect(wrapper.find('.score').exists()).toBe(true);
     expect(wrapper.find('.score').text()).toBe('0');
   });
 
   it('should render combo display', () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     expect(wrapper.find('.combo').exists()).toBe(true);
   });
 
   it('should render progress bar', () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     expect(wrapper.find('.progress-bar').exists()).toBe(true);
   });
 
   it('should render pause button', () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     expect(wrapper.find('.pause-btn').exists()).toBe(true);
   });
 
   it('should render 4 touch zones', () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const zones = wrapper.findAll('.touch-zone');
     expect(zones).toHaveLength(4);
   });
 
   it('should show pause overlay when paused', async () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.screen = 'paused';
@@ -223,17 +276,20 @@ describe('GameScreen', () => {
   });
 
   it('should not render results screen inside game screen', async () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     store.screen = 'results';
     await wrapper.vm.$nextTick();
-    // ResultsScreen is rendered by App.vue, not inside GameScreen
     expect(wrapper.findComponent(ResultsScreen).exists()).toBe(false);
   });
 
   it('should call togglePause on pause button click', async () => {
-    const wrapper = mount(GameScreen);
+    const wrapper = mount(GameScreen, {
+      global: { plugins: [createI18nInstance()] },
+    });
     const { useGameStore } = await import('@/stores/game');
     const store = useGameStore();
     const spy = vi.spyOn(store, 'togglePause');

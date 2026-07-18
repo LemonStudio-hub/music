@@ -196,6 +196,9 @@ export class Renderer {
     const by = block.y + block.shakeY;
     const r = 8;
 
+    // Skip blocks fully off-screen
+    if (by + bh / 2 < -50 || by - bh / 2 > this.h + 50) return;
+
     const alpha = block.hit ? block.opacity : block.missed ? 0.12 : 1;
 
     // Motion trail
@@ -296,22 +299,22 @@ export class Renderer {
 
   drawParticles(particles: Particle[]): void {
     const ctx = this.ctx;
-    for (let i = particles.length - 1; i >= 0; i--) {
+    let alive = 0;
+    for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       p.x += p.vx;
       p.y += p.vy;
       p.vy += 0.15;
       p.life -= 0.03;
-      if (p.life <= 0) {
-        particles.splice(i, 1);
-        continue;
-      }
+      if (p.life <= 0) continue;
+      particles[alive++] = p;
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
     }
+    particles.length = alive;
     ctx.globalAlpha = 1;
   }
 }
