@@ -49,6 +49,7 @@ export class Game {
   maxCombo = 0;
   audioCtx: AudioContext | null = null;
   source: AudioBufferSourceNode | null = null;
+  analyser: AnalyserNode | null = null;
   buffer: AudioBuffer | null = null;
   startTime = 0;
   playing = false;
@@ -119,7 +120,11 @@ export class Game {
     void this.audioCtx.resume();
     this.source = this.audioCtx.createBufferSource();
     this.source.buffer = this.buffer;
-    this.source.connect(this.audioCtx.destination);
+    this.analyser = this.audioCtx.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.analyser.smoothingTimeConstant = 0.8;
+    this.source.connect(this.analyser);
+    this.analyser.connect(this.audioCtx.destination);
     this.source.onended = (): void => {
       this.source?.disconnect();
       this.source = null;

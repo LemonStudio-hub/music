@@ -12,166 +12,52 @@
     </div>
 
     <div class="dev-scroll">
-      <!-- Audio Analysis -->
-      <section v-if="store.analysisData" class="dev-section">
-        <h3 class="dev-section-title">{{ t('dev.audio') }}</h3>
-        <div class="dev-grid">
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.bpm') }}</span>
-            <span class="dev-stat-value accent">{{ store.analysisData.bpm }}</span>
+      <!-- Spectrum Analyzer -->
+      <section class="dev-section">
+        <h3 class="dev-section-title">{{ t('dev.spectrum') }}</h3>
+        <canvas ref="spectrumCanvas" class="dev-canvas"></canvas>
+      </section>
+
+      <!-- Waveform -->
+      <section class="dev-section">
+        <h3 class="dev-section-title">{{ t('dev.waveform') }}</h3>
+        <canvas ref="waveformCanvas" class="dev-canvas"></canvas>
+      </section>
+
+      <!-- dB Meter -->
+      <section class="dev-section">
+        <h3 class="dev-section-title">{{ t('dev.dbLevel') }}</h3>
+        <div class="db-meter">
+          <div class="db-bar-track">
+            <div class="db-bar-fill" :style="{ width: dbPercent + '%' }" :class="dbColor"></div>
           </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.duration') }}</span>
-            <span class="dev-stat-value">{{ formatTime(store.analysisData.duration) }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.noteCount') }}</span>
-            <span class="dev-stat-value">{{ store.analysisData.noteCount }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.notesPerSecond') }}</span>
-            <span class="dev-stat-value">{{ store.analysisData.notesPerSecond.toFixed(1) }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.peakNps') }}</span>
-            <span class="dev-stat-value">{{ store.analysisData.peakNotesPerSecond }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.avgIntensity') }}</span>
-            <span class="dev-stat-value">{{ store.analysisData.avgIntensity.toFixed(3) }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.maxIntensity') }}</span>
-            <span class="dev-stat-value">{{ store.analysisData.maxIntensity.toFixed(3) }}</span>
+          <div class="db-labels">
+            <span class="db-value" :class="dbColor">{{ dbValue.toFixed(1) }} dB</span>
+            <span class="db-peak">{{ t('dev.peak') }} {{ peakDb.toFixed(1) }} dB</span>
           </div>
         </div>
       </section>
 
-      <!-- Lane Distribution -->
-      <section v-if="store.analysisData" class="dev-section">
-        <h3 class="dev-section-title">{{ t('dev.laneDistribution') }}</h3>
-        <div class="dev-bars">
-          <div
-            v-for="(count, i) in store.analysisData.laneDistribution"
-            :key="i"
-            class="dev-bar-row"
-          >
-            <span class="dev-bar-label">L{{ i }}</span>
-            <div class="dev-bar-track">
-              <div class="dev-bar-fill" :style="{ width: lanePercent(count) + '%' }"></div>
-            </div>
-            <span class="dev-bar-value">{{ count }}</span>
+      <!-- Live Info -->
+      <section class="dev-section">
+        <div class="dev-info-grid">
+          <div class="dev-info-item">
+            <span class="dev-info-label">{{ t('dev.bpm') }}</span>
+            <span class="dev-info-value accent">{{ store.analysisData?.bpm ?? '—' }}</span>
           </div>
-        </div>
-      </section>
-
-      <!-- Beat Grid -->
-      <section v-if="store.analysisData" class="dev-section">
-        <h3 class="dev-section-title">{{ t('dev.beatGrid') }}</h3>
-        <div class="dev-grid">
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.gridCount') }}</span>
-            <span class="dev-stat-value">{{ store.analysisData.beatGrid.length }}</span>
+          <div class="dev-info-item">
+            <span class="dev-info-label">{{ t('dev.elapsed') }}</span>
+            <span class="dev-info-value">{{ formatTime(store.devMetrics?.elapsed ?? 0) }}</span>
           </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.gridInterval') }}</span>
-            <span class="dev-stat-value">
-              {{ store.analysisData.bpm > 0 ? (60 / store.analysisData.bpm).toFixed(3) : '—' }}s
+          <div class="dev-info-item">
+            <span class="dev-info-label">{{ t('dev.combo') }}</span>
+            <span class="dev-info-value">{{ store.devMetrics?.combo ?? 0 }}</span>
+          </div>
+          <div class="dev-info-item">
+            <span class="dev-info-label">{{ t('dev.accuracy') }}</span>
+            <span class="dev-info-value" :class="accuracyColor">
+              {{ ((store.devMetrics?.accuracy ?? 0) * 100).toFixed(1) }}%
             </span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Sections -->
-      <section
-        v-if="store.analysisData && store.analysisData.sections.length > 0"
-        class="dev-section"
-      >
-        <h3 class="dev-section-title">{{ t('dev.sections') }}</h3>
-        <div class="dev-sections-list">
-          <div v-for="(sec, i) in store.analysisData.sections" :key="i" class="dev-section-item">
-            <span class="dev-section-type" :class="'sec-' + sec.type">
-              {{ t(`dev.${sec.type}`) }}
-            </span>
-            <span class="dev-section-time">
-              {{ formatTime(sec.startTime) }} – {{ formatTime(sec.endTime) }}
-            </span>
-            <span class="dev-section-intensity">
-              {{ sec.intensity.toFixed(2) }}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Realtime Data -->
-      <section v-if="store.devMetrics" class="dev-section">
-        <h3 class="dev-section-title">{{ t('dev.realtime') }}</h3>
-        <div class="dev-grid">
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.elapsed') }}</span>
-            <span class="dev-stat-value">{{ formatTime(store.devMetrics.elapsed) }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.accuracy') }}</span>
-            <span class="dev-stat-value" :class="accuracyColor">
-              {{ (store.devMetrics.accuracy * 100).toFixed(1) }}%
-            </span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.currentNps') }}</span>
-            <span class="dev-stat-value">{{ store.devMetrics.currentNps.toFixed(1) }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.activeBlocks') }}</span>
-            <span class="dev-stat-value">{{ store.devMetrics.activeBlocks }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.approaching') }}</span>
-            <span class="dev-stat-value" :class="{ warn: store.devMetrics.approachingBlocks > 3 }">
-              {{ store.devMetrics.approachingBlocks }}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Live Stats -->
-      <section v-if="store.devMetrics" class="dev-section">
-        <h3 class="dev-section-title">{{ t('dev.liveStats') }}</h3>
-        <div class="dev-grid">
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.score') }}</span>
-            <span class="dev-stat-value accent">{{ store.devMetrics.score }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.combo') }}</span>
-            <span class="dev-stat-value">{{ store.devMetrics.combo }}</span>
-          </div>
-          <div class="dev-stat">
-            <span class="dev-stat-label">{{ t('dev.maxCombo') }}</span>
-            <span class="dev-stat-value">{{ store.devMetrics.maxCombo }}</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Hit Breakdown -->
-      <section v-if="store.devMetrics" class="dev-section">
-        <h3 class="dev-section-title">{{ t('dev.hitBreakdown') }}</h3>
-        <div class="dev-hit-grid">
-          <div class="dev-hit-item perfect">
-            <span class="dev-hit-label">{{ t('results.perfect') }}</span>
-            <span class="dev-hit-value">{{ store.devMetrics.perfect }}</span>
-          </div>
-          <div class="dev-hit-item great">
-            <span class="dev-hit-label">{{ t('results.great') }}</span>
-            <span class="dev-hit-value">{{ store.devMetrics.great }}</span>
-          </div>
-          <div class="dev-hit-item good">
-            <span class="dev-hit-label">{{ t('results.good') }}</span>
-            <span class="dev-hit-value">{{ store.devMetrics.good }}</span>
-          </div>
-          <div class="dev-hit-item miss">
-            <span class="dev-hit-label">{{ t('results.miss') }}</span>
-            <span class="dev-hit-value">{{ store.devMetrics.miss }}</span>
           </div>
         </div>
       </section>
@@ -180,12 +66,35 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useGameStore } from '@/stores/game';
 
 const store = useGameStore();
 const { t } = useI18n();
+
+const spectrumCanvas = ref<HTMLCanvasElement | null>(null);
+const waveformCanvas = ref<HTMLCanvasElement | null>(null);
+
+const dbValue = ref(-60);
+const peakDb = ref(-60);
+const dbPercent = ref(0);
+
+let animId = 0;
+let peakDecay = 0;
+
+const dbColor = computed(() => {
+  if (dbValue.value > -6) return 'db-red';
+  if (dbValue.value > -18) return 'db-yellow';
+  return 'db-green';
+});
+
+const accuracyColor = computed(() => {
+  const acc = store.devMetrics?.accuracy ?? 0;
+  if (acc >= 0.95) return 'acc-perfect';
+  if (acc >= 0.8) return 'acc-good';
+  return 'acc-warn';
+});
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -193,17 +102,152 @@ function formatTime(seconds: number): string {
   return `${String(m)}:${String(s).padStart(2, '0')}`;
 }
 
-function lanePercent(count: number): number {
-  if (!store.analysisData) return 0;
-  const max = Math.max(...store.analysisData.laneDistribution, 1);
-  return (count / max) * 100;
+function draw(): void {
+  const analyser = store.getAnalyser();
+  if (!analyser) {
+    animId = requestAnimationFrame(draw);
+    return;
+  }
+
+  drawSpectrum(analyser);
+  drawWaveform(analyser);
+  updateDb(analyser);
+
+  animId = requestAnimationFrame(draw);
 }
 
-const accuracyColor = computed(() => {
-  if (!store.devMetrics) return '';
-  const acc = store.devMetrics.accuracy;
-  if (acc >= 0.95) return 'acc-perfect';
-  if (acc >= 0.8) return 'acc-good';
-  return 'acc-warn';
+function drawSpectrum(analyser: AnalyserNode): void {
+  const canvas = spectrumCanvas.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (canvas.width !== w * dpr) {
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  analyser.getByteFrequencyData(dataArray);
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Draw frequency bars
+  const barCount = 64;
+  const step = Math.floor(bufferLength / barCount);
+  const barWidth = (w - (barCount - 1) * 1.5) / barCount;
+
+  for (let i = 0; i < barCount; i++) {
+    // Average the frequency bin range for this bar
+    let sum = 0;
+    for (let j = 0; j < step; j++) {
+      sum += dataArray[i * step + j];
+    }
+    const avg = sum / step;
+    const barHeight = (avg / 255) * h * 0.95;
+
+    const x = i * (barWidth + 1.5);
+    const y = h - barHeight;
+
+    // Gradient color based on level
+    const ratio = avg / 255;
+    const r = Math.round(167 + ratio * 88);
+    const g = Math.round(139 - ratio * 80);
+    const b = Math.round(250 - ratio * 100);
+
+    ctx.fillStyle = `rgb(${String(r)},${String(g)},${String(b)})`;
+    ctx.fillRect(x, y, barWidth, barHeight);
+
+    // Subtle top cap
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillRect(x, y, barWidth, 2);
+  }
+}
+
+function drawWaveform(analyser: AnalyserNode): void {
+  const canvas = waveformCanvas.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (canvas.width !== w * dpr) {
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const bufferLength = analyser.fftSize;
+  const dataArray = new Uint8Array(bufferLength);
+  analyser.getByteTimeDomainData(dataArray);
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Center line
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+
+  // Waveform
+  ctx.strokeStyle = 'rgba(167, 139, 250, 0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+
+  const sliceWidth = w / bufferLength;
+  let x = 0;
+  for (let i = 0; i < bufferLength; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = (v * h) / 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+}
+
+function updateDb(analyser: AnalyserNode): void {
+  const dataArray = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(dataArray);
+
+  // RMS calculation
+  let sum = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    sum += dataArray[i] * dataArray[i];
+  }
+  const rms = Math.sqrt(sum / dataArray.length);
+  const db = rms > 0 ? 20 * Math.log10(rms) : -60;
+
+  dbValue.value = Math.max(-60, Math.min(0, db));
+  dbPercent.value = Math.max(0, Math.min(100, ((dbValue.value + 60) / 60) * 100));
+
+  // Peak with decay
+  if (dbValue.value > peakDb.value) {
+    peakDb.value = dbValue.value;
+    peakDecay = 0;
+  } else {
+    peakDecay++;
+    if (peakDecay > 30) {
+      peakDb.value = Math.max(-60, peakDb.value - 0.5);
+    }
+  }
+}
+
+onMounted(() => {
+  animId = requestAnimationFrame(draw);
+});
+
+onUnmounted(() => {
+  cancelAnimationFrame(animId);
 });
 </script>

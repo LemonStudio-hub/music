@@ -78,6 +78,10 @@ export const useGameStore = defineStore('game', () => {
     renderer?.resize();
   }
 
+  function getAnalyser(): AnalyserNode | null {
+    return engine?.analyser ?? null;
+  }
+
   function beginCountdown(audioBuffer: AudioBuffer, notes: NoteEvent[]): void {
     countdownValue.value = 3;
     screen.value = 'countdown';
@@ -565,6 +569,7 @@ export const useGameStore = defineStore('game', () => {
     setDifficulty,
     initRenderer,
     requestResize,
+    getAnalyser,
     loadFile,
     restoreStored,
     clearStored,
