@@ -660,6 +660,153 @@ canvas {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* ─── Settings ───────────────────────────────────────────────────────────── */
+.settings-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+.settings-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-secondary);
+}
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 10, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+
+.settings-panel {
+  width: 300px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.settings-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all var(--transition);
+}
+.settings-close:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.settings-body {
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.settings-toggle-group {
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 3px;
+}
+
+.settings-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 5px 14px;
+  border-radius: calc(var(--radius) - 3px);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 400;
+  transition: all var(--transition);
+}
+.settings-toggle:hover {
+  color: var(--text-secondary);
+}
+.settings-toggle.active {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.settings-switch {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--border);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--transition);
+  padding: 0;
+}
+.settings-switch.on {
+  background: var(--accent);
+}
+
+.settings-switch-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: transform var(--transition);
+}
+.settings-switch.on .settings-switch-thumb {
+  transform: translateX(18px);
+}
+
 /* ─── Dev Mode Toggle ────────────────────────────────────────────────────── */
 .dev-toggle-btn {
   position: fixed;

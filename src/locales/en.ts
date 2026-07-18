@@ -32,6 +32,11 @@ export default {
   game: {
     combo: '{n} COMBO',
   },
+  settings: {
+    title: 'Settings',
+    language: 'Language',
+    devMode: 'Developer Mode',
+  },
   results: {
     accuracy: 'Accuracy',
     maxCombo: 'Max Combo',

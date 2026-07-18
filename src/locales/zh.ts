@@ -32,6 +32,11 @@ export default {
   game: {
     combo: '{n} COMBO',
   },
+  settings: {
+    title: '设置',
+    language: '语言',
+    devMode: '开发者模式',
+  },
   results: {
     accuracy: '准确率',
     maxCombo: '最高连击',
