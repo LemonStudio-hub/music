@@ -7,7 +7,7 @@ import App from '@/App.vue';
 import StartScreen from '@/components/StartScreen.vue';
 import GameScreen from '@/components/GameScreen.vue';
 
-function createI18nInstance() {
+function createI18nInstance(): ReturnType<typeof createI18n> {
   return createI18n({
     legacy: false,
     locale: 'zh',

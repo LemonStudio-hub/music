@@ -1071,39 +1071,8 @@ export async function analyzeAudio(
 
 import { createAudioContext } from '@/audio-context';
 
-export async function loadAudioFile(
-  file: File,
-  onProgress?: (percent: number) => void,
-): Promise<AudioBuffer> {
-  // Read file with progress tracking via Fetch + ReadableStream
-  let arrayBuffer: ArrayBuffer;
-  if (onProgress && file.size > 0) {
-    const response = new Response(file);
-    const reader = response.body?.getReader();
-    if (reader) {
-      const chunks: Uint8Array[] = [];
-      let received = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        onProgress(Math.round((received / file.size) * 100));
-      }
-      const all = new Uint8Array(received);
-      let pos = 0;
-      for (const chunk of chunks) {
-        all.set(chunk, pos);
-        pos += chunk.length;
-      }
-      arrayBuffer = all.buffer;
-    } else {
-      arrayBuffer = await file.arrayBuffer();
-    }
-  } else {
-    arrayBuffer = await file.arrayBuffer();
-  }
-
+export async function loadAudioFile(file: File): Promise<AudioBuffer> {
+  const arrayBuffer = await file.arrayBuffer();
   const audioCtx = createAudioContext();
   const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
   void audioCtx.close();

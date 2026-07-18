@@ -114,11 +114,9 @@ export const useGameStore = defineStore('game', () => {
 
     try {
       await resumeAudio();
-      const audioBuffer = await loadAudioFile(file, p => {
-        loadPercent.value = p;
-      });
       loadPhase.value = 'analyzing';
       loadPercent.value = 0;
+      const audioBuffer = await loadAudioFile(file);
       const analysis = await analyzeAudio(audioBuffer, difficulty.value, p => {
         loadPercent.value = p;
       });
