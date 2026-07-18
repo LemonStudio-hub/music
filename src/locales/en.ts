@@ -50,12 +50,10 @@ export default {
   dev: {
     title: 'Developer Dashboard',
     spectrum: 'Spectrum',
+    spectrogram: 'Spectrogram',
     waveform: 'Waveform',
     dbLevel: 'Level',
     peak: 'Peak',
-    bpm: 'BPM',
-    elapsed: 'Elapsed',
-    combo: 'Combo',
-    accuracy: 'Accuracy',
+    centroid: 'Spectral Centroid',
   },
 };

@@ -50,12 +50,10 @@ export default {
   dev: {
     title: '开发者仪表盘',
     spectrum: '频谱分析',
+    spectrogram: '频谱瀑布图',
     waveform: '波形',
     dbLevel: '音量电平',
     peak: '峰值',
-    bpm: 'BPM',
-    elapsed: '时间',
-    combo: '连击',
-    accuracy: '准确率',
+    centroid: '频谱质心',
   },
 };

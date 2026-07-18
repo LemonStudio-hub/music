@@ -18,6 +18,12 @@
         <canvas ref="spectrumCanvas" class="dev-canvas"></canvas>
       </section>
 
+      <!-- Mel Spectrogram Waterfall -->
+      <section class="dev-section">
+        <h3 class="dev-section-title">{{ t('dev.spectrogram') }}</h3>
+        <canvas ref="spectrogramCanvas" class="dev-canvas dev-canvas-tall"></canvas>
+      </section>
+
       <!-- Waveform -->
       <section class="dev-section">
         <h3 class="dev-section-title">{{ t('dev.waveform') }}</h3>
@@ -29,7 +35,7 @@
         <h3 class="dev-section-title">{{ t('dev.dbLevel') }}</h3>
         <div class="db-meter">
           <div class="db-bar-track">
-            <div class="db-bar-fill" :style="{ width: dbPercent + '%' }" :class="dbColor"></div>
+            <div class="db-bar-fill" :class="dbColor" :style="{ width: dbPercent + '%' }"></div>
           </div>
           <div class="db-labels">
             <span class="db-value" :class="dbColor">{{ dbValue.toFixed(1) }} dB</span>
@@ -38,26 +44,18 @@
         </div>
       </section>
 
-      <!-- Live Info -->
+      <!-- Spectral Centroid -->
       <section class="dev-section">
-        <div class="dev-info-grid">
-          <div class="dev-info-item">
-            <span class="dev-info-label">{{ t('dev.bpm') }}</span>
-            <span class="dev-info-value accent">{{ store.analysisData?.bpm ?? '—' }}</span>
+        <h3 class="dev-section-title">{{ t('dev.centroid') }}</h3>
+        <div class="centroid-display">
+          <div class="centroid-bar-track">
+            <div class="centroid-bar-fill" :style="{ width: centroidPercent + '%' }"></div>
+            <div class="centroid-marker" :style="{ left: centroidPercent + '%' }"></div>
           </div>
-          <div class="dev-info-item">
-            <span class="dev-info-label">{{ t('dev.elapsed') }}</span>
-            <span class="dev-info-value">{{ formatTime(store.devMetrics?.elapsed ?? 0) }}</span>
-          </div>
-          <div class="dev-info-item">
-            <span class="dev-info-label">{{ t('dev.combo') }}</span>
-            <span class="dev-info-value">{{ store.devMetrics?.combo ?? 0 }}</span>
-          </div>
-          <div class="dev-info-item">
-            <span class="dev-info-label">{{ t('dev.accuracy') }}</span>
-            <span class="dev-info-value" :class="accuracyColor">
-              {{ ((store.devMetrics?.accuracy ?? 0) * 100).toFixed(1) }}%
-            </span>
+          <div class="centroid-labels">
+            <span>Low</span>
+            <span class="centroid-value">{{ centroidHz }} Hz</span>
+            <span>High</span>
           </div>
         </div>
       </section>
@@ -74,33 +72,25 @@ const store = useGameStore();
 const { t } = useI18n();
 
 const spectrumCanvas = ref<HTMLCanvasElement | null>(null);
+const spectrogramCanvas = ref<HTMLCanvasElement | null>(null);
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 
 const dbValue = ref(-60);
 const peakDb = ref(-60);
 const dbPercent = ref(0);
+const centroidHz = ref(0);
+const centroidPercent = ref(0);
 
 let animId = 0;
 let peakDecay = 0;
+const spectrogramData: Uint8Array[] = [];
+const spectrogramMaxColumns = 128;
 
 const dbColor = computed(() => {
   if (dbValue.value > -6) return 'db-red';
   if (dbValue.value > -18) return 'db-yellow';
   return 'db-green';
 });
-
-const accuracyColor = computed(() => {
-  const acc = store.devMetrics?.accuracy ?? 0;
-  if (acc >= 0.95) return 'acc-perfect';
-  if (acc >= 0.8) return 'acc-good';
-  return 'acc-warn';
-});
-
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${String(m)}:${String(s).padStart(2, '0')}`;
-}
 
 function draw(): void {
   const analyser = store.getAnalyser();
@@ -110,8 +100,10 @@ function draw(): void {
   }
 
   drawSpectrum(analyser);
+  drawSpectrogram(analyser);
   drawWaveform(analyser);
   updateDb(analyser);
+  updateCentroid(analyser);
 
   animId = requestAnimationFrame(draw);
 }
@@ -137,24 +129,20 @@ function drawSpectrum(analyser: AnalyserNode): void {
 
   ctx.clearRect(0, 0, w, h);
 
-  // Draw frequency bars
   const barCount = 64;
   const step = Math.floor(bufferLength / barCount);
   const barWidth = (w - (barCount - 1) * 1.5) / barCount;
 
   for (let i = 0; i < barCount; i++) {
-    // Average the frequency bin range for this bar
     let sum = 0;
     for (let j = 0; j < step; j++) {
       sum += dataArray[i * step + j];
     }
     const avg = sum / step;
     const barHeight = (avg / 255) * h * 0.95;
-
     const x = i * (barWidth + 1.5);
     const y = h - barHeight;
 
-    // Gradient color based on level
     const ratio = avg / 255;
     const r = Math.round(167 + ratio * 88);
     const g = Math.round(139 - ratio * 80);
@@ -163,9 +151,70 @@ function drawSpectrum(analyser: AnalyserNode): void {
     ctx.fillStyle = `rgb(${String(r)},${String(g)},${String(b)})`;
     ctx.fillRect(x, y, barWidth, barHeight);
 
-    // Subtle top cap
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.fillRect(x, y, barWidth, 2);
+  }
+}
+
+function drawSpectrogram(analyser: AnalyserNode): void {
+  const canvas = spectrogramCanvas.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  if (canvas.width !== w * dpr) {
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  analyser.getByteFrequencyData(dataArray);
+
+  // Downsample to mel-like bins (logarithmic)
+  const bins = 64;
+  const column = new Uint8Array(bins);
+  for (let i = 0; i < bins; i++) {
+    // Logarithmic frequency mapping
+    const lo = Math.floor(Math.pow(i / bins, 2) * bufferLength);
+    const hi = Math.floor(Math.pow((i + 1) / bins, 2) * bufferLength);
+    let max = 0;
+    for (let j = lo; j < hi && j < bufferLength; j++) {
+      if (dataArray[j] > max) max = dataArray[j];
+    }
+    column[i] = max;
+  }
+
+  // Add column to history
+  spectrogramData.push(column);
+  if (spectrogramData.length > spectrogramMaxColumns) {
+    spectrogramData.shift();
+  }
+
+  // Draw waterfall
+  ctx.clearRect(0, 0, w, h);
+  const colWidth = w / spectrogramMaxColumns;
+  const binHeight = h / bins;
+
+  for (let x = 0; x < spectrogramData.length; x++) {
+    const col = spectrogramData[x];
+    for (let y = 0; y < bins; y++) {
+      const val = col[y];
+      if (val < 8) continue;
+
+      const ratio = val / 255;
+      // Dark purple -> bright yellow heatmap
+      const r = Math.round(ratio * 255);
+      const g = Math.round(ratio * ratio * 200);
+      const b = Math.round((1 - ratio) * 80 + ratio * 50);
+
+      ctx.fillStyle = `rgb(${String(r)},${String(g)},${String(b)})`;
+      ctx.fillRect(x * colWidth, h - (y + 1) * binHeight, colWidth + 0.5, binHeight + 0.5);
+    }
   }
 }
 
@@ -190,7 +239,6 @@ function drawWaveform(analyser: AnalyserNode): void {
 
   ctx.clearRect(0, 0, w, h);
 
-  // Center line
   ctx.strokeStyle = 'rgba(255,255,255,0.06)';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -198,7 +246,6 @@ function drawWaveform(analyser: AnalyserNode): void {
   ctx.lineTo(w, h / 2);
   ctx.stroke();
 
-  // Waveform
   ctx.strokeStyle = 'rgba(167, 139, 250, 0.8)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
@@ -220,7 +267,6 @@ function updateDb(analyser: AnalyserNode): void {
   const dataArray = new Float32Array(analyser.fftSize);
   analyser.getFloatTimeDomainData(dataArray);
 
-  // RMS calculation
   let sum = 0;
   for (let i = 0; i < dataArray.length; i++) {
     sum += dataArray[i] * dataArray[i];
@@ -231,7 +277,6 @@ function updateDb(analyser: AnalyserNode): void {
   dbValue.value = Math.max(-60, Math.min(0, db));
   dbPercent.value = Math.max(0, Math.min(100, ((dbValue.value + 60) / 60) * 100));
 
-  // Peak with decay
   if (dbValue.value > peakDb.value) {
     peakDb.value = dbValue.value;
     peakDecay = 0;
@@ -241,6 +286,28 @@ function updateDb(analyser: AnalyserNode): void {
       peakDb.value = Math.max(-60, peakDb.value - 0.5);
     }
   }
+}
+
+function updateCentroid(analyser: AnalyserNode): void {
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  analyser.getByteFrequencyData(dataArray);
+
+  const sampleRate = store.getAnalyser()?.context.sampleRate ?? 44100;
+  const binHz = sampleRate / (bufferLength * 2);
+
+  let weightedSum = 0;
+  let totalMagnitude = 0;
+  for (let i = 0; i < bufferLength; i++) {
+    const freq = i * binHz;
+    const mag = dataArray[i];
+    weightedSum += freq * mag;
+    totalMagnitude += mag;
+  }
+
+  const centroid = totalMagnitude > 0 ? weightedSum / totalMagnitude : 0;
+  centroidHz.value = Math.round(centroid);
+  centroidPercent.value = Math.min(100, (centroid / 8000) * 100);
 }
 
 onMounted(() => {
