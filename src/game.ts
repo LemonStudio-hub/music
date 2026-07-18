@@ -6,16 +6,12 @@ import { Renderer, Block, Particle } from '@/renderer';
 import { NoteEvent } from '@/audio';
 import { getCtx } from '@/sfx';
 
-// Color palette for blocks - vibrant colors
+// Color palette - one family per lane, matching lane base colors
 const BLOCK_COLORS: Array<{ start: string; end: string }> = [
-  { start: '#ff6b6b', end: '#ee5a24' }, // Red
-  { start: '#feca57', end: '#ff9f43' }, // Yellow/Orange
-  { start: '#48dbfb', end: '#0abde3' }, // Cyan
-  { start: '#ff9ff3', end: '#f368e0' }, // Pink
-  { start: '#54a0ff', end: '#2e86de' }, // Blue
-  { start: '#5f27cd', end: '#341f97' }, // Purple
-  { start: '#01a3a4', end: '#00b894' }, // Teal
-  { start: '#ff6348', end: '#eb4d4b' }, // Orange/Red
+  { start: '#c4b5fd', end: '#8b5cf6' }, // Lane 0: Purple
+  { start: '#93c5fd', end: '#3b82f6' }, // Lane 1: Blue
+  { start: '#6ee7b7', end: '#10b981' }, // Lane 2: Green
+  { start: '#fcd34d', end: '#f59e0b' }, // Lane 3: Amber
 ];
 
 export interface HitResult {
