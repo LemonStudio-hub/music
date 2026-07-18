@@ -247,7 +247,7 @@ export class Game {
     return null;
   }
 
-  private registerHit(block: Block, dist: number): void {
+  registerHit(block: Block, dist: number): void {
     block.hit = true;
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;

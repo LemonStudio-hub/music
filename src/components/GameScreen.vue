@@ -1,44 +1,63 @@
 <template>
-  <div class="game-screen">
-    <canvas
-      ref="canvasRef"
-      role="img"
-      aria-label="Music blocks game"
-      @pointerdown="onPointerDown"
-    ></canvas>
-    <div class="score" :class="{ pulse: scorePulse }">{{ store.scoreText }}</div>
-    <div class="combo" :class="{ pulse: comboPulse }">{{ store.comboText }}</div>
-    <div class="time-remaining">{{ formatTime(store.timeRemaining) }}</div>
-    <div
-      class="progress-bar"
-      role="progressbar"
-      :aria-valuenow="Math.round(store.progress * 100)"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      :style="{ width: store.progressPercent }"
-    ></div>
-    <button class="pause-btn" aria-label="Pause game" @click="store.togglePause()">II</button>
-
-    <div class="touch-zones">
+  <div class="game-screen" :class="{ 'dev-split': store.devMode }">
+    <div class="game-area">
+      <canvas
+        ref="canvasRef"
+        role="img"
+        aria-label="Music blocks game"
+        @pointerdown="onPointerDown"
+      ></canvas>
+      <div class="score" :class="{ pulse: scorePulse }">{{ store.scoreText }}</div>
+      <div class="combo" :class="{ pulse: comboPulse }">{{ store.comboText }}</div>
+      <div class="time-remaining">{{ formatTime(store.timeRemaining) }}</div>
       <div
-        v-for="lane in 4"
-        :key="lane"
-        class="touch-zone"
-        :data-lane="lane - 1"
-        @pointerdown.prevent="onTouchLane(lane - 1)"
+        class="progress-bar"
+        role="progressbar"
+        :aria-valuenow="Math.round(store.progress * 100)"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :style="{ width: store.progressPercent }"
       ></div>
+      <button
+        v-if="!store.devMode"
+        class="pause-btn"
+        aria-label="Pause game"
+        @click="store.togglePause()"
+      >
+        II
+      </button>
+      <button
+        v-if="store.canEnableDevMode()"
+        class="dev-toggle-btn"
+        :class="{ active: store.devMode }"
+        @click="store.toggleDevMode()"
+      >
+        ⚙
+      </button>
+
+      <div class="touch-zones">
+        <div
+          v-for="lane in 4"
+          :key="lane"
+          class="touch-zone"
+          :data-lane="lane - 1"
+          @pointerdown.prevent="onTouchLane(lane - 1)"
+        ></div>
+      </div>
+
+      <HitEffect
+        v-for="effect in effects"
+        :key="effect.id"
+        :text="effect.text"
+        :color="effect.color"
+        :x="effect.x"
+        :y="effect.y"
+      />
+
+      <PauseOverlay v-if="store.screen === 'paused'" />
     </div>
 
-    <HitEffect
-      v-for="effect in effects"
-      :key="effect.id"
-      :text="effect.text"
-      :color="effect.color"
-      :x="effect.x"
-      :y="effect.y"
-    />
-
-    <PauseOverlay v-if="store.screen === 'paused'" />
+    <DevDashboard v-if="store.devMode" />
   </div>
 </template>
 
@@ -49,6 +68,7 @@ import { Block } from '@/renderer';
 import { playHitSound } from '@/sfx';
 import HitEffect from './HitEffect.vue';
 import PauseOverlay from './PauseOverlay.vue';
+import DevDashboard from './DevDashboard.vue';
 
 const store = useGameStore();
 const canvasRef = ref<HTMLCanvasElement | null>(null);

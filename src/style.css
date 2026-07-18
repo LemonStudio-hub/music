@@ -660,6 +660,286 @@ canvas {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* ─── Dev Mode Toggle ────────────────────────────────────────────────────── */
+.dev-toggle-btn {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+.dev-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--text-muted);
+}
+.dev-toggle-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── Dev Mode Split Layout ──────────────────────────────────────────────── */
+.game-screen.dev-split {
+  display: flex;
+}
+.game-screen.dev-split .game-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+.game-screen.dev-split .game-area canvas {
+  width: 100%;
+  height: 100%;
+}
+.game-screen.dev-split .score,
+.game-screen.dev-split .combo,
+.game-screen.dev-split .time-remaining,
+.game-screen.dev-split .progress-bar {
+  position: absolute;
+}
+.game-screen.dev-split .progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+}
+
+/* ─── Dev Dashboard ──────────────────────────────────────────────────────── */
+.dev-dashboard {
+  width: 340px;
+  min-width: 300px;
+  height: 100dvh;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+  overflow: hidden;
+}
+
+.dev-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.dev-title {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dev-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all var(--transition);
+}
+.dev-close:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.dev-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dev-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dev-section-title {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dev-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+
+.dev-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 2px 0;
+}
+
+.dev-stat-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.dev-stat-value {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+}
+.dev-stat-value.accent {
+  color: var(--accent);
+}
+.dev-stat-value.acc-perfect {
+  color: var(--text);
+}
+.dev-stat-value.acc-good {
+  color: var(--text-secondary);
+}
+.dev-stat-value.acc-warn {
+  color: #ef4444;
+}
+.dev-stat-value.warn {
+  color: #f59e0b;
+}
+
+/* Lane bars */
+.dev-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dev-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dev-bar-label {
+  width: 20px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+.dev-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border-subtle);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.dev-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.dev-bar-value {
+  width: 28px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sections */
+.dev-sections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dev-section-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.dev-section-type {
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-muted);
+  min-width: 40px;
+  text-align: center;
+}
+.dev-section-type.sec-chorus {
+  background: rgba(167, 139, 250, 0.15);
+  color: var(--accent);
+}
+.dev-section-type.sec-intro,
+.dev-section-type.sec-outro {
+  color: var(--text-muted);
+}
+.dev-section-time {
+  flex: 1;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.dev-section-intensity {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hit breakdown */
+.dev-hit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.dev-hit-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+.dev-hit-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+.dev-hit-value {
+  font-size: 0.75rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.dev-hit-item.perfect .dev-hit-value {
+  color: var(--text);
+}
+.dev-hit-item.great .dev-hit-value {
+  color: var(--text-secondary);
+}
+.dev-hit-item.good .dev-hit-value {
+  color: var(--text-muted);
+}
+.dev-hit-item.miss .dev-hit-value {
+  color: #3f3f46;
+}
+
 @media (hover: none) and (pointer: coarse) {
   .touch-zones {
     display: flex;

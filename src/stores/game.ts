@@ -120,6 +120,7 @@ export const useGameStore = defineStore('game', () => {
       const analysis = await analyzeAudio(audioBuffer, difficulty.value, p => {
         loadPercent.value = p;
       });
+      setAnalysisData(analysis);
 
       void storeAudioBuffer(audioBuffer, file.name).then(
         () => {
@@ -165,6 +166,7 @@ export const useGameStore = defineStore('game', () => {
       const analysis = await analyzeAudio(result.buffer, difficulty.value, p => {
         loadPercent.value = p;
       });
+      setAnalysisData(analysis);
 
       if (renderer) {
         beginCountdown(result.buffer, analysis.notes);
@@ -231,6 +233,22 @@ export const useGameStore = defineStore('game', () => {
     renderer.drawLaneHints(engine.lanes, engine.laneWidth, engine.hitLineY, engine.isMobile);
 
     engine.updateBlocks(now);
+
+    // Dev mode: auto-hit blocks as they reach the hit line
+    if (devMode.value) {
+      for (const block of engine.blocks) {
+        if (block.hit || block.missed) continue;
+        const dist = Math.abs(block.time - now);
+        if (dist < 0.06) {
+          engine.registerHit(block, dist);
+          engine.spawnParticles(block);
+          score.value = engine.score;
+          combo.value = engine.combo;
+          maxCombo.value = engine.maxCombo;
+          recordHit(getHitLabel(dist).text);
+        }
+      }
+    }
 
     for (const block of engine.blocks) {
       if (block.opacity <= 0) continue;
@@ -387,6 +405,129 @@ export const useGameStore = defineStore('game', () => {
     results.value = null;
   }
 
+  // Developer mode
+  const devMode = ref(false);
+  const analysisData = ref<{
+    bpm: number;
+    duration: number;
+    noteCount: number;
+    laneDistribution: number[];
+    sections: Array<{ startTime: number; endTime: number; type: string; intensity: number }>;
+    beatGrid: number[];
+    avgIntensity: number;
+    maxIntensity: number;
+    notesPerSecond: number;
+    peakNotesPerSecond: number;
+  } | null>(null);
+
+  function toggleDevMode(): void {
+    devMode.value = !devMode.value;
+  }
+
+  function canEnableDevMode(): boolean {
+    return window.innerWidth >= 768;
+  }
+
+  // Live dev metrics
+  const devMetrics = computed(() => {
+    if (!engine) return null;
+    const now = engine.getElapsed();
+    const notes = engine.blocks;
+
+    // Lane distribution
+    const laneDist = [0, 0, 0, 0];
+    for (const b of notes) laneDist[b.lane]++;
+
+    // Hit accuracy
+    const hitCount = hitStats.perfect + hitStats.great + hitStats.good;
+    const totalProcessed = hitCount + hitStats.miss;
+    const accuracy = totalProcessed > 0 ? hitCount / totalProcessed : 0;
+
+    // Notes per second (sliding window of last 5 seconds)
+    const windowSize = 5;
+    const windowStart = Math.max(0, now - windowSize);
+    let recentHits = 0;
+    let recentMisses = 0;
+    for (const b of notes) {
+      if (b.time >= windowStart && b.time <= now) {
+        if (b.hit) recentHits++;
+        if (b.missed) recentMisses++;
+      }
+    }
+    const currentNps = (recentHits + recentMisses) / windowSize;
+
+    // Active blocks on screen
+    const activeBlocks = notes.filter(
+      b => !b.hit && !b.missed && b.y > 0 && b.y < (renderer?.h ?? 800),
+    ).length;
+
+    // Blocks approaching hit line (within 200ms)
+    const approachingBlocks = notes.filter(b => {
+      const timeToHit = b.time - now;
+      return !b.hit && !b.missed && timeToHit > 0 && timeToHit < 0.2;
+    }).length;
+
+    return {
+      elapsed: now,
+      accuracy,
+      currentNps,
+      activeBlocks,
+      approachingBlocks,
+      perfect: hitStats.perfect,
+      great: hitStats.great,
+      good: hitStats.good,
+      miss: hitStats.miss,
+      combo: combo.value,
+      maxCombo: maxCombo.value,
+      score: score.value,
+    };
+  });
+
+  function setAnalysisData(data: {
+    bpm: number;
+    duration: number;
+    notes: NoteEvent[];
+    beatGrid: number[];
+    sections: Array<{ startTime: number; endTime: number; type: string; intensity: number }>;
+  }): void {
+    const laneDist = [0, 0, 0, 0];
+    let totalIntensity = 0;
+    let maxIntensity = 0;
+    for (const n of data.notes) {
+      laneDist[n.lane]++;
+      totalIntensity += n.intensity;
+      if (n.intensity > maxIntensity) maxIntensity = n.intensity;
+    }
+
+    // Notes per second
+    const nps = data.duration > 0 ? data.notes.length / data.duration : 0;
+
+    // Peak NPS (in 1-second windows)
+    let peakNps = 0;
+    if (data.notes.length > 0) {
+      const sorted = [...data.notes].sort((a, b) => a.time - b.time);
+      let windowStart = 0;
+      for (let i = 0; i < sorted.length; i++) {
+        while (sorted[windowStart].time < sorted[i].time - 1) windowStart++;
+        const count = i - windowStart + 1;
+        if (count > peakNps) peakNps = count;
+      }
+    }
+
+    analysisData.value = {
+      bpm: data.bpm,
+      duration: data.duration,
+      noteCount: data.notes.length,
+      laneDistribution: laneDist,
+      sections: data.sections,
+      beatGrid: data.beatGrid,
+      avgIntensity: data.notes.length > 0 ? totalIntensity / data.notes.length : 0,
+      maxIntensity,
+      notesPerSecond: nps,
+      peakNotesPerSecond: peakNps,
+    };
+  }
+
   function setDifficulty(d: Difficulty): void {
     difficulty.value = d;
   }
@@ -411,6 +552,12 @@ export const useGameStore = defineStore('game', () => {
     comboText,
     scoreText,
     progressPercent,
+    devMode,
+    analysisData,
+    devMetrics,
+    toggleDevMode,
+    canEnableDevMode,
+    setAnalysisData,
     setDifficulty,
     initRenderer,
     loadFile,
