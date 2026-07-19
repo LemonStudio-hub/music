@@ -52,9 +52,13 @@ export class Game {
   paused = false;
   pauseTime = 0;
   animId = 0;
-  readonly fallDuration = 2.5;
+  fallDuration = 1.6; // BPM-adaptive, set in init()
   readonly lanes = 4;
   private _isMobile = matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+  // BPM tracking for beat pulse
+  bpm = 120;
+  private lastBeatIndex = -1;
 
   // Hit line pulse state
   hitLinePulse = 0;
@@ -80,13 +84,19 @@ export class Game {
     return this.renderer.w / this.lanes;
   }
 
-  init(audioBuffer: AudioBuffer, notes: NoteEvent[]): void {
+  init(audioBuffer: AudioBuffer, notes: NoteEvent[], bpm = 120): void {
     this.buffer = audioBuffer;
     this.score = 0;
     this.combo = 0;
     this.maxCombo = 0;
     this.paused = false;
     this._isMobile = matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+    // BPM-adaptive fall speed: higher BPM → shorter fall duration (faster feel)
+    // Range clamped to [1.0, 2.0], biased toward faster
+    this.bpm = bpm;
+    this.fallDuration = Math.max(1.0, Math.min(2.0, 140 / bpm));
+    this.lastBeatIndex = -1;
     this.blocks = notes.map(note => {
       const colorSet = BLOCK_COLORS[note.lane % BLOCK_COLORS.length];
       return {
@@ -141,8 +151,19 @@ export class Game {
     return Math.max(0, Math.min(1, this.getElapsed() / this.buffer.duration));
   }
 
-  updateBlocks(now: number): number {
+  updateBlocks(now: number): { activeBlocks: number; beatPulse: boolean } {
     let activeBlocks = 0;
+    let beatPulse = false;
+
+    // BPM beat pulse detection
+    if (this.bpm > 0 && this.audioCtx) {
+      const beatInterval = 60 / this.bpm;
+      const currentBeatIndex = Math.floor(now / beatInterval);
+      if (currentBeatIndex > this.lastBeatIndex && currentBeatIndex >= 0) {
+        this.lastBeatIndex = currentBeatIndex;
+        beatPulse = true;
+      }
+    }
 
     // Decay lane flashes
     for (const flash of this.laneFlashes) {
@@ -204,7 +225,7 @@ export class Game {
 
       activeBlocks++;
     }
-    return activeBlocks;
+    return { activeBlocks, beatPulse };
   }
 
   hitAt(lane: number): HitResult | null {
@@ -267,25 +288,25 @@ export class Game {
     const cx = block.lane * this.laneWidth + this.laneWidth / 2;
     const cy = this.hitLineY;
 
-    // Block shake on hit
-    block.shakeX = (Math.random() - 0.5) * 30;
-    block.shakeY = (Math.random() - 0.5) * 24;
+    // Block shake on hit - snappier
+    block.shakeX = (Math.random() - 0.5) * 36;
+    block.shakeY = (Math.random() - 0.5) * 28;
 
-    // Screen shake based on combo
-    const shakeAmount = Math.min(12 + this.combo * 1.0, 35);
+    // Screen shake based on combo - more responsive curve
+    const shakeAmount = Math.min(10 + this.combo * 1.2, 40);
     this.renderer.shake(shakeAmount);
 
     // Lane flash
     const flash = this.laneFlashes[block.lane];
     flash.color = block.color;
-    flash.alpha = 0.6;
+    flash.alpha = 0.7;
 
     // Hit line pulse
     this.hitLinePulse = 1;
     this.hitLineColor = block.color;
 
-    // Screen flash (brief white overlay)
-    this.screenFlashAlpha = 0.15 + Math.min(this.combo * 0.01, 0.1);
+    // Screen flash - scales more with combo
+    this.screenFlashAlpha = 0.12 + Math.min(this.combo * 0.012, 0.15);
 
     // Ripple rings
     for (let i = 0; i < 2; i++) {

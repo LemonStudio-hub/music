@@ -232,33 +232,33 @@ export class Renderer {
 
   drawHitLine(hitLineY: number, width: number, pulse = 0, color = '#fff'): void {
     const ctx = this.ctx;
-    const effectivePulse = Math.max(pulse, this.bpmPulse * 0.15);
+    const effectivePulse = Math.max(pulse, this.bpmPulse * 0.25);
 
     // Wide glow zone under hit line
-    const glowH = 50 * (1 + effectivePulse);
+    const glowH = 50 * (1 + effectivePulse * 1.5);
     const glowGrad = ctx.createLinearGradient(0, hitLineY - glowH, 0, hitLineY + glowH);
     glowGrad.addColorStop(0, 'transparent');
-    glowGrad.addColorStop(0.4, color);
+    glowGrad.addColorStop(0.35, color);
     glowGrad.addColorStop(0.5, color);
-    glowGrad.addColorStop(0.6, color);
+    glowGrad.addColorStop(0.65, color);
     glowGrad.addColorStop(1, 'transparent');
-    ctx.globalAlpha = 0.15 + effectivePulse * 0.3;
+    ctx.globalAlpha = 0.12 + effectivePulse * 0.35;
     ctx.fillStyle = glowGrad;
     ctx.fillRect(0, hitLineY - glowH, width, glowH * 2);
     ctx.globalAlpha = 1;
 
     // Main line
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2 + effectivePulse * 3;
-    ctx.globalAlpha = 0.3 + effectivePulse * 0.5;
+    ctx.lineWidth = 2 + effectivePulse * 4;
+    ctx.globalAlpha = 0.3 + effectivePulse * 0.6;
     ctx.beginPath();
     ctx.moveTo(0, hitLineY);
     ctx.lineTo(width, hitLineY);
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // BPM pulse decay
-    this.bpmPulse *= 0.92;
+    // BPM pulse decay - snappier
+    this.bpmPulse *= 0.88;
   }
 
   drawRipple(x: number, y: number, radius: number, color: string, alpha: number): void {
@@ -282,6 +282,61 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
+  // Beat grid lines - subtle horizontal lines marking beat positions
+  drawBeatGrid(
+    lanes: number,
+    laneWidth: number,
+    hitLineY: number,
+    fallDuration: number,
+    bpm: number,
+    now: number,
+  ): void {
+    if (bpm <= 0) return;
+    const ctx = this.ctx;
+    const beatInterval = 60 / bpm;
+
+    // Calculate which beats are visible on screen
+    const lookAhead = fallDuration;
+    const firstBeat = Math.floor((now) / beatInterval);
+    const lastBeat = Math.ceil((now + lookAhead) / beatInterval);
+
+    for (let i = firstBeat; i <= lastBeat; i++) {
+      if (i < 0) continue;
+      const beatTime = i * beatInterval;
+      const elapsed = beatTime - now;
+      const y = hitLineY - (elapsed / fallDuration) * hitLineY;
+
+      // Only draw if on screen
+      if (y < -20 || y > hitLineY + 10) continue;
+
+      // Stronger line on downbeats (every 4th beat)
+      const isDownbeat = i % 4 === 0;
+      ctx.globalAlpha = isDownbeat ? 0.08 : 0.035;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = isDownbeat ? 1.5 : 0.8;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(lanes * laneWidth, y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Proximity glow: blocks near the hit line get brighter
+  drawProximityGlow(hitLineY: number, width: number, fallDuration: number, bpm: number): void {
+    const ctx = this.ctx;
+    // Pulsing zone near hit line synced to BPM
+    const pulse = this.bpmPulse;
+    const glowH = 80 + pulse * 40;
+
+    const grad = ctx.createLinearGradient(0, hitLineY - glowH, 0, hitLineY);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.7, `rgba(255,255,255,${String(0.02 + pulse * 0.04)})`);
+    grad.addColorStop(1, `rgba(255,255,255,${String(0.04 + pulse * 0.06)})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, hitLineY - glowH, width, glowH);
+  }
+
   drawLaneHints(lanes: number, laneWidth: number, hitLineY: number, isMobile: boolean): void {
     const ctx = this.ctx;
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
@@ -293,7 +348,7 @@ export class Renderer {
     }
   }
 
-  drawBlock(block: Block, laneWidth: number, _hitLineY: number): void {
+  drawBlock(block: Block, laneWidth: number, hitLineY: number): void {
     const ctx = this.ctx;
     const x = block.lane * laneWidth + laneWidth * 0.12 + block.shakeX;
     const bw = laneWidth * 0.76;
@@ -306,14 +361,26 @@ export class Renderer {
 
     const alpha = block.hit ? block.opacity : block.missed ? 0.12 : 1;
 
-    // Motion trail
+    // Proximity factor: blocks glow brighter near the hit line
+    const distToHit = Math.abs(hitLineY - by);
+    const proximity = Math.max(0, 1 - distToHit / (hitLineY * 0.4));
+
+    // Slight scale-up near hit line for juicy feel
+    const scaleBoost = block.hit ? 1 : 1 + proximity * 0.06;
+    const scaledBh = bh * scaleBoost;
+    const scaledBw = bw * scaleBoost;
+    const adjX = x - (scaledBw - bw) / 2;
+    const adjBy = by;
+
+    // Motion trail - longer and brighter near hit line
     if (!block.hit && !block.missed && block.prevY !== block.y) {
-      const trailLen = Math.min(Math.abs(block.y - block.prevY) * 0.6, 40);
+      const speed = Math.abs(block.y - block.prevY);
+      const trailLen = Math.min(speed * (0.6 + proximity * 0.4), 55);
       if (trailLen > 2) {
         const trailGrad = ctx.createLinearGradient(x, by - bh / 2 - trailLen, x, by - bh / 2);
         trailGrad.addColorStop(0, 'transparent');
         trailGrad.addColorStop(1, block.color);
-        ctx.globalAlpha = alpha * 0.25;
+        ctx.globalAlpha = alpha * (0.2 + proximity * 0.2);
         ctx.fillStyle = trailGrad;
         ctx.fillRect(x + 4, by - bh / 2 - trailLen, bw - 8, trailLen);
       }
@@ -321,14 +388,14 @@ export class Renderer {
 
     ctx.globalAlpha = alpha;
 
-    // Glow
+    // Glow - intensifies near hit line
     if (!block.missed) {
       ctx.shadowColor = block.hit ? '#fff' : block.color;
-      ctx.shadowBlur = block.hit ? 20 : 12;
+      ctx.shadowBlur = block.hit ? 20 : 12 + proximity * 10;
     }
 
-    // Main body gradient
-    const bodyGrad = ctx.createLinearGradient(x, by - bh / 2, x + bw, by + bh / 2);
+    // Main body gradient (use scaled dimensions)
+    const bodyGrad = ctx.createLinearGradient(adjX, adjBy - scaledBh / 2, adjX + scaledBw, adjBy + scaledBh / 2);
     if (block.hit) {
       bodyGrad.addColorStop(0, '#fff');
       bodyGrad.addColorStop(0.5, '#fff');
@@ -343,43 +410,43 @@ export class Renderer {
     }
     ctx.fillStyle = bodyGrad;
 
-    // Rounded rect
+    // Rounded rect (scaled)
     ctx.beginPath();
-    ctx.moveTo(x + r, by - bh / 2);
-    ctx.lineTo(x + bw - r, by - bh / 2);
-    ctx.quadraticCurveTo(x + bw, by - bh / 2, x + bw, by - bh / 2 + r);
-    ctx.lineTo(x + bw, by + bh / 2 - r);
-    ctx.quadraticCurveTo(x + bw, by + bh / 2, x + bw - r, by + bh / 2);
-    ctx.lineTo(x + r, by + bh / 2);
-    ctx.quadraticCurveTo(x, by + bh / 2, x, by + bh / 2 - r);
-    ctx.lineTo(x, by - bh / 2 + r);
-    ctx.quadraticCurveTo(x, by - bh / 2, x + r, by - bh / 2);
+    ctx.moveTo(adjX + r, adjBy - scaledBh / 2);
+    ctx.lineTo(adjX + scaledBw - r, adjBy - scaledBh / 2);
+    ctx.quadraticCurveTo(adjX + scaledBw, adjBy - scaledBh / 2, adjX + scaledBw, adjBy - scaledBh / 2 + r);
+    ctx.lineTo(adjX + scaledBw, adjBy + scaledBh / 2 - r);
+    ctx.quadraticCurveTo(adjX + scaledBw, adjBy + scaledBh / 2, adjX + scaledBw - r, adjBy + scaledBh / 2);
+    ctx.lineTo(adjX + r, adjBy + scaledBh / 2);
+    ctx.quadraticCurveTo(adjX, adjBy + scaledBh / 2, adjX, adjBy + scaledBh / 2 - r);
+    ctx.lineTo(adjX, adjBy - scaledBh / 2 + r);
+    ctx.quadraticCurveTo(adjX, adjBy - scaledBh / 2, adjX + r, adjBy - scaledBh / 2);
     ctx.closePath();
     ctx.fill();
 
     ctx.shadowBlur = 0;
 
-    // Highlight stripe
+    // Highlight stripe (scaled)
     if (!block.missed) {
-      const hlGrad = ctx.createLinearGradient(x, by - bh / 2, x + bw, by - bh / 2);
+      const hlGrad = ctx.createLinearGradient(adjX, adjBy - scaledBh / 2, adjX + scaledBw, adjBy - scaledBh / 2);
       hlGrad.addColorStop(0, 'transparent');
       hlGrad.addColorStop(0.3, 'rgba(255,255,255,0.35)');
       hlGrad.addColorStop(0.7, 'rgba(255,255,255,0.15)');
       hlGrad.addColorStop(1, 'transparent');
       ctx.fillStyle = hlGrad;
       ctx.beginPath();
-      ctx.moveTo(x + r, by - bh / 2);
-      ctx.lineTo(x + bw - r, by - bh / 2);
-      ctx.quadraticCurveTo(x + bw, by - bh / 2, x + bw, by - bh / 2 + r);
-      ctx.lineTo(x + bw, by - bh / 2 + r + 4);
-      ctx.lineTo(x, by - bh / 2 + r + 4);
-      ctx.lineTo(x, by - bh / 2 + r);
-      ctx.quadraticCurveTo(x, by - bh / 2, x + r, by - bh / 2);
+      ctx.moveTo(adjX + r, adjBy - scaledBh / 2);
+      ctx.lineTo(adjX + scaledBw - r, adjBy - scaledBh / 2);
+      ctx.quadraticCurveTo(adjX + scaledBw, adjBy - scaledBh / 2, adjX + scaledBw, adjBy - scaledBh / 2 + r);
+      ctx.lineTo(adjX + scaledBw, adjBy - scaledBh / 2 + r + 4);
+      ctx.lineTo(adjX, adjBy - scaledBh / 2 + r + 4);
+      ctx.lineTo(adjX, adjBy - scaledBh / 2 + r);
+      ctx.quadraticCurveTo(adjX, adjBy - scaledBh / 2, adjX + r, adjBy - scaledBh / 2);
       ctx.closePath();
       ctx.fill();
     }
 
-    // Thin border
+    // Thin border (scaled)
     ctx.strokeStyle = block.hit
       ? 'rgba(255,255,255,0.6)'
       : block.missed
@@ -387,15 +454,15 @@ export class Renderer {
         : 'rgba(255,255,255,0.15)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(x + r, by - bh / 2);
-    ctx.lineTo(x + bw - r, by - bh / 2);
-    ctx.quadraticCurveTo(x + bw, by - bh / 2, x + bw, by - bh / 2 + r);
-    ctx.lineTo(x + bw, by + bh / 2 - r);
-    ctx.quadraticCurveTo(x + bw, by + bh / 2, x + bw - r, by + bh / 2);
-    ctx.lineTo(x + r, by + bh / 2);
-    ctx.quadraticCurveTo(x, by + bh / 2, x, by + bh / 2 - r);
-    ctx.lineTo(x, by - bh / 2 + r);
-    ctx.quadraticCurveTo(x, by - bh / 2, x + r, by - bh / 2);
+    ctx.moveTo(adjX + r, adjBy - scaledBh / 2);
+    ctx.lineTo(adjX + scaledBw - r, adjBy - scaledBh / 2);
+    ctx.quadraticCurveTo(adjX + scaledBw, adjBy - scaledBh / 2, adjX + scaledBw, adjBy - scaledBh / 2 + r);
+    ctx.lineTo(adjX + scaledBw, adjBy + scaledBh / 2 - r);
+    ctx.quadraticCurveTo(adjX + scaledBw, adjBy + scaledBh / 2, adjX + scaledBw - r, adjBy + scaledBh / 2);
+    ctx.lineTo(adjX + r, adjBy + scaledBh / 2);
+    ctx.quadraticCurveTo(adjX, adjBy + scaledBh / 2, adjX, adjBy + scaledBh / 2 - r);
+    ctx.lineTo(adjX, adjBy - scaledBh / 2 + r);
+    ctx.quadraticCurveTo(adjX, adjBy - scaledBh / 2, adjX + r, adjBy - scaledBh / 2);
     ctx.closePath();
     ctx.stroke();
 

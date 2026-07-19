@@ -211,7 +211,7 @@ export const useGameStore = defineStore('game', () => {
     if (!renderer) return;
 
     engine = new Game(renderer);
-    engine.init(audioBuffer, notes);
+    engine.init(audioBuffer, notes, analysisData.value?.bpm ?? 120);
 
     score.value = 0;
     combo.value = 0;
@@ -247,10 +247,26 @@ export const useGameStore = defineStore('game', () => {
       renderer.drawLaneFlash(i, engine.laneWidth, engine.hitLineY, flash.color, flash.alpha);
     }
 
+    renderer.drawProximityGlow(engine.hitLineY, renderer.w, engine.fallDuration, engine.bpm);
     renderer.drawHitLine(engine.hitLineY, renderer.w, engine.hitLinePulse, engine.hitLineColor);
     renderer.drawLaneHints(engine.lanes, engine.laneWidth, engine.hitLineY, engine.isMobile);
 
-    engine.updateBlocks(now);
+    // Beat grid lines (drawn behind blocks)
+    renderer.drawBeatGrid(
+      engine.lanes,
+      engine.laneWidth,
+      engine.hitLineY,
+      engine.fallDuration,
+      engine.bpm,
+      now,
+    );
+
+    const updateResult = engine.updateBlocks(now);
+
+    // Trigger BPM pulse on each beat
+    if (updateResult.beatPulse) {
+      renderer.triggerBpmPulse();
+    }
 
     // Dev mode: auto-hit blocks as they reach the hit line
     if (devMode.value) {
